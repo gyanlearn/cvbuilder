@@ -205,7 +205,7 @@ def ats_score(cv_text: str, industry: str, lang_cfg: Dict[str, Any], prof_cfg: D
             'type': 'grammar',
             'snippet': (g.get('examples') or [''])[0],
             'suggestion': 'Rewrite to fix grammar',
-            'message': `${g['message']} (${g.get('count', 1)} instances)`
+            'message': f"{g['message']} ({g.get('count', 1)} instances)"
         })
     for sp in spelling_suggestions:
         issues.append({'type': 'spelling', 'snippet': sp['word'], 'suggestion': f"Consider: {', '.join(sp['suggestions'])}", 'message': 'Potential misspelling'})
