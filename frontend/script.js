@@ -1,5 +1,5 @@
 // Configuration
-const API_BASE_URL = 'https://cv-parser-backend.onrender.com'; // Production backend URL
+const API_BASE_URL = 'https://cv-parser-backend-4eir.onrender.com'; // Production backend URL
 
 // DOM Elements
 const dropZone = document.getElementById('drop-zone');
