@@ -70,7 +70,7 @@ async def log_requests(request: Request, call_next):
 # Initialize Supabase with error handling
 try:
     supabase_url = os.getenv("SUPABASE_URL")
-    supabase_key = os.getenv("SUPABASE_KEY")
+    supabase_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY") or os.getenv("SUPABASE_KEY")
     
     if not supabase_url or not supabase_key:
         logger.error("Supabase credentials not found in environment variables")
@@ -121,23 +121,27 @@ class ATSResult(BaseModel):
 def extract_text_from_pdf(file_path: str) -> str:
     """Extract text from PDF using PyMuPDF and pdfplumber"""
     text = ""
-    
-    # Use PyMuPDF for general text extraction
-    doc = fitz.open(file_path)
-    for page in doc:
-        text += page.get_text()
-    doc.close()
-    
-    # Use pdfplumber for table extraction
-    with pdfplumber.open(file_path) as pdf:
-        for page in pdf.pages:
-            tables = page.extract_tables()
-            for table in tables:
-                for row in table:
-                    if row:
-                        text += " " + " ".join([str(cell) if cell else "" for cell in row])
-    
-    return text
+    # Primary: PyMuPDF
+    try:
+        doc = fitz.open(file_path)
+        for page in doc:
+            text += page.get_text() or ""
+        doc.close()
+    except Exception as e:
+        logger.warning(f"PyMuPDF failed, falling back to pdfplumber: {e}")
+    # Secondary: pdfplumber (also capture tables)
+    try:
+        with pdfplumber.open(file_path) as pdf:
+            for page in pdf.pages:
+                page_text = page.extract_text() or ""
+                text += "\n" + page_text
+                tables = page.extract_tables()
+                for table in tables or []:
+                    row_text = " ".join([" ".join([c or '' for c in row]) for row in table])
+                    text += "\n" + row_text
+    except Exception as e:
+        logger.error(f"pdfplumber also failed to extract text: {e}")
+    return text.strip()
 
 def extract_text_from_docx(file_path: str) -> str:
     """Extract text from DOCX file"""
