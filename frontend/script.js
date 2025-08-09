@@ -24,6 +24,7 @@ const issuesList = document.getElementById('issues-list');
 const contactInfo = document.getElementById('contact-info');
 const skillsList = document.getElementById('skills-list');
 const optimizeBtn = document.getElementById('optimize-btn');
+const industrySelect = document.getElementById('industry-select');
 
 // Advanced elements
 const advancedCard = document.getElementById('advanced-card');
@@ -105,7 +106,8 @@ async function uploadFile(file) {
         // Simulate progress
         simulateProgress();
 
-        const response = await fetch(`${API_BASE_URL}/upload-resume`, {
+        const industry = (industrySelect && industrySelect.value) ? industrySelect.value : 'technology';
+        const response = await fetch(`${API_BASE_URL}/upload-resume?industry=${encodeURIComponent(industry)}`, {
             method: 'POST',
             body: formData,
             // Add timeout and other production settings

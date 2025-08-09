@@ -116,12 +116,17 @@ def ats_score(cv_text: str, industry: str, lang_cfg: Dict[str, Any], prof_cfg: D
         pat = rule.get('pattern')
         if not pat:
             continue
-        for m in re.finditer(pat, cv_text, flags=re.IGNORECASE):
-            snippet = cv_text[max(0, m.start()-30): m.end()+30]
+        hits = list(re.finditer(pat, cv_text, flags=re.IGNORECASE))
+        if hits:
+            # Aggregate into a single issue with count and first few snippets
+            examples = []
+            for m in hits[:5]:
+                examples.append(cv_text[max(0, m.start()-30): m.end()+30])
             grammar_issues.append({
                 'message': rule.get('message', 'Grammar issue'),
                 'severity': rule.get('severity', 'medium'),
-                'snippet': snippet
+                'count': len(hits),
+                'examples': examples
             })
 
     # Spelling (very simple: find tokens not in any dictionary)
@@ -196,7 +201,12 @@ def ats_score(cv_text: str, industry: str, lang_cfg: Dict[str, Any], prof_cfg: D
     # Actionable issues aggregation
     issues = []
     for g in grammar_issues:
-        issues.append({'type': 'grammar', 'snippet': g['snippet'], 'suggestion': 'Rewrite to fix grammar', 'message': g['message']})
+        issues.append({
+            'type': 'grammar',
+            'snippet': (g.get('examples') or [''])[0],
+            'suggestion': 'Rewrite to fix grammar',
+            'message': `${g['message']} (${g.get('count', 1)} instances)`
+        })
     for sp in spelling_suggestions:
         issues.append({'type': 'spelling', 'snippet': sp['word'], 'suggestion': f"Consider: {', '.join(sp['suggestions'])}", 'message': 'Potential misspelling'})
     for w in weak_hits:
