@@ -13,6 +13,7 @@ import pdfplumber
 from docx import Document
 import google.generativeai as genai
 from supabase import create_client, Client
+from uuid import uuid4
 from dotenv import load_dotenv
 from pydantic import BaseModel
 import email_validator
@@ -475,6 +476,37 @@ async def upload_resume(file: UploadFile = File(...)):
             temp_file.write(content)
             temp_file_path = temp_file.name
 
+        # Upload original file to Supabase Storage (if configured)
+        cv_file_url = None
+        cv_storage_path = None
+        if supabase:
+            try:
+                bucket_name = os.getenv("SUPABASE_BUCKET", "resumes")
+                # Ensure bucket exists (no-op if already exists)
+                try:
+                    supabase.storage.create_bucket(bucket_name, public=True)
+                except Exception:
+                    pass
+
+                # Build storage path
+                ext = os.path.splitext(file.filename)[1].lower() or ".bin"
+                storage_key = f"{datetime.utcnow().strftime('%Y/%m/%d')}/{uuid4().hex}{ext}"
+
+                # Read bytes and upload
+                with open(temp_file_path, "rb") as fbin:
+                    file_bytes = fbin.read()
+                supabase.storage.from_(bucket_name).upload(
+                    path=storage_key,
+                    file=file_bytes,
+                    file_options={"content-type": file.content_type or "application/octet-stream"}
+                )
+                # Get public URL
+                cv_file_url = supabase.storage.from_(bucket_name).get_public_url(storage_key)
+                cv_storage_path = f"{bucket_name}/{storage_key}"
+                logger.info("Uploaded CV to Supabase Storage: %s", cv_storage_path)
+            except Exception as e:
+                logger.error(f"Failed to upload CV to Supabase Storage: {e}")
+
         # Extract text based on file type
         if file.content_type == 'application/pdf':
             text = extract_text_from_pdf(temp_file_path)
@@ -495,6 +527,8 @@ async def upload_resume(file: UploadFile = File(...)):
                 supabase_data = {
                     "email": resume_data.email,
                     "mobile": resume_data.mobile,
+                    "mobile_country_code": resume_data.mobile_country_code,
+                    "mobile_national_number": resume_data.mobile_national_number,
                     "address": resume_data.address,
                     "skills": resume_data.skills,
                     "experience": resume_data.experience,
@@ -504,6 +538,10 @@ async def upload_resume(file: UploadFile = File(...)):
                     "github": resume_data.github,
                     "summary": resume_data.summary,
                     "certifications": resume_data.certifications,
+                    "cv_file_url": cv_file_url,
+                    "cv_storage_path": cv_storage_path,
+                    "cv_mime_type": file.content_type,
+                    "cv_file_size": len(content),
                     "ats_score": ats_result.total_score,
                     "score_breakdown": ats_result.breakdown,
                     "issues": ats_result.issues,
