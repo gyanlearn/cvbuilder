@@ -495,13 +495,7 @@ async def upload_resume(file: UploadFile = File(...)):
         if supabase:
             try:
                 bucket_name = os.getenv("SUPABASE_BUCKET", "resumes")
-                # Ensure bucket exists (no-op if already exists)
-                try:
-                    supabase.storage.create_bucket(bucket_name, public=True)
-                except Exception:
-                    pass
-
-                # Build storage path
+                # Build storage path (assumes bucket already exists and is public)
                 ext = os.path.splitext(file.filename)[1].lower() or ".bin"
                 storage_key = f"{datetime.utcnow().strftime('%Y/%m/%d')}/{uuid4().hex}{ext}"
 
