@@ -1,0 +1,44 @@
+{
+  "general_keywords": [
+    "team", "leadership", "collaboration", "cross-functional", "stakeholder", "stakeholder management",
+    "project", "program", "roadmap", "execution", "delivery", "metrics", "OKR", "KPI",
+    "analysis", "analytics", "insights", "impact", "results", "ownership", "prioritization", "scalability",
+    "security", "performance", "usability", "customer", "growth", "experimentation", "a/b testing"
+  ],
+  "grammar": [
+    {"pattern": "\\bit's\\b", "message": "Use 'its' for possessive, not 'it's'", "severity": "low"},
+    {"pattern": "\\balot\\b", "message": "Possible misspelling of 'a lot'", "severity": "low"},
+    {"pattern": "\\bthere is\\s+\\d+\\b", "message": "Use plural verb with plural subject", "severity": "medium"},
+    {"pattern": "\\b(I|me|my|we|our)\\b", "message": "Avoid first-person pronouns in professional resumes", "severity": "low"},
+    {"pattern": "\\b(be|is|am|are|was|were|been|being)\\s+\\w+(ed|en)\\b", "message": "Prefer active voice over passive constructions", "severity": "medium"},
+    {"pattern": " {2,}", "message": "Remove double or extra spaces", "severity": "low"},
+    {"pattern": "\u00a0", "message": "Replace non-breaking spaces with regular spaces", "severity": "low"},
+    {"pattern": "\\s,", "message": "Remove space before a comma", "severity": "low"},
+    {"pattern": "\\.(?=[A-Za-z])", "message": "Add a space after periods", "severity": "low"},
+    {"pattern": "!{2,}", "message": "Avoid multiple exclamation marks", "severity": "low"},
+    {"pattern": "\\bETA\\b", "message": "Avoid internal acronyms unless necessary", "severity": "low"},
+    {"pattern": "\\betc\\.\\b", "message": "Avoid 'etc.'; list specific examples", "severity": "low"},
+    {"pattern": "\\b\n?\\d{1,2}[/-]\\d{4}\\b", "message": "Use consistent date formats across entries", "severity": "low"},
+    {"pattern": "\\bvery\\b|\\breally\\b|\\bhighly\\b", "message": "Avoid intensifiers; use precise, quantified language", "severity": "low"},
+    {"pattern": "\\butilize(d)?\\b", "message": "Prefer 'use/used' instead of 'utilize/utilized'", "severity": "low"},
+    {"pattern": "\\bgot\\b", "message": "Use professional verbs (e.g., ‘achieved’, ‘obtained’)", "severity": "low"},
+    {"pattern": "\\b(ability to|capable of)\\b", "message": "Use active verbs instead of ability phrases", "severity": "low"},
+    {"pattern": "\\b(thing|things|stuff)\\b", "message": "Avoid vague nouns; be specific", "severity": "low"}
+  ],
+  "spelling": {
+    "dictionaries": [
+      ["experience","management","strategy","analysis","stakeholder","leadership","optimization","analytics","product","growth","testing","experimentation","python","javascript","docker","kubernetes","aws","sql","react","agile","scrum","roadmap","prioritization","orchestrated","mentored","delivered","achieved","optimized","launched"],
+      ["communication","collaboration","problem","solution","impact","results","delivery","execution","planning","metrics","observability","security","performance","usability","scalability","containerization","microservices","serverless","kubernetes","postgresql","supabase","uvicorn","fastapi"],
+      ["quantitative","qualitative","hypothesis","experimentation","conversion","retention","activation","segmentation","forecasting","budgeting","compliance","orchestration","instrumentation","modernization","localization","personalization"],
+      ["okrs","kpis","crm","seo","sem","cro","llm","genai","rag","etl","ml","ai"]
+    ]
+  },
+  "readability": {
+    "max_sentence_length": 24,
+    "complex_word_min_len": 8,
+    "max_complex_ratio": 0.16,
+    "target_word_count_min": 200,
+    "target_word_count_max": 1200
+  }
+}
+

@@ -1,0 +1,8 @@
+{
+  "languages": ["python","javascript","java","go","rust","typescript","sql"],
+  "frameworks": ["react","node.js","django","flask","spring","graphql"],
+  "cloud": ["aws","azure","gcp","serverless","kubernetes","docker"],
+  "data": ["ml","machine learning","ai","data engineering","spark","hadoop"],
+  "platforms": ["microservices","event-driven","rest","grpc"]
+}
+

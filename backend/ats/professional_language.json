@@ -1,0 +1,118 @@
+{
+  "action_verbs": {
+    "leadership": [
+      "led","spearheaded","mentored","managed","orchestrated","directed","coordinated","oversaw","supervised",
+      "championed","owned","governed","mobilized","guided","inspired","coached","hired","scaled"
+    ],
+    "strategy": [
+      "defined","shaped","architected","envisioned","formulated","roadmapped","prioritized","aligned","positioned","planned"
+    ],
+    "accomplishment": [
+      "delivered","achieved","improved","optimized","launched","increased","reduced","accelerated","boosted","grew",
+      "expanded","saved","cut","stabilized","surpassed","exceeded","hit","met"
+    ],
+    "problem_solving": [
+      "resolved","debugged","troubleshot","mitigated","remediated","root-caused","refactored","streamlined","automated",
+      "de-risked","hardened","fixed","patched","unblocked","simplified"
+    ],
+    "communication": [
+      "presented","influenced","evangelized","negotiated","aligned","communicated","briefed","reported","documented",
+      "socialized","articulated"
+    ],
+    "collaboration": [
+      "partnered","coordinated","facilitated","drove cross-functional","collaborated","synchronized","co-created"
+    ],
+    "product": [
+      "prioritized","roadmapped","hypothesized","validated","experimented","launched","iterated","discovered","prototyped",
+      "tested","measured","analyzed","localized"
+    ],
+    "engineering": [
+      "implemented","designed","built","developed","integrated","deployed","provisioned","containerized","instrumented",
+      "monitored","tested","benchmarked","profiled","hardened","scaled","migrated","modernized"
+    ],
+    "data": [
+      "analyzed","modeled","forecasted","quantified","measured","tracked","segmented","clustered","predicted",
+      "visualized","dashboarded"
+    ],
+    "growth": [
+      "experimented","ab-tested","optimized conversion","drove acquisition","improved retention","reduced churn","activated",
+      "personalized","targeted","retargeted"
+    ],
+    "operations": [
+      "standardized","documented","systematized","operationalized","templatized","automated","streamlined","audited"
+    ],
+    "customer": [
+      "onboarded","supported","resolved","advocated","surveyed","improved NPS","handled escalations"
+    ]
+  },
+  "weak_language": {
+    "phrases": [
+      "helped with","worked on","responsible for","involved in","assisted with",
+      "familiar with","knowledge of","participated in","exposed to","various","several","some",
+      "a lot","stuff","things","etc.","and more","tasked with","handled","utilized"
+    ],
+    "replacements": {
+      "helped with": ["contributed to","enabled"],
+      "worked on": ["delivered","built","implemented"],
+      "responsible for": ["owned","led"],
+      "involved in": ["participated in","supported"],
+      "assisted with": ["supported","contributed to"],
+      "familiar with": ["applied","used in production"],
+      "knowledge of": ["proficient in","experienced with"],
+      "participated in": ["collaborated on","co-delivered"],
+      "exposed to": ["worked with","applied"],
+      "various": ["specify scope/results"],
+      "several": ["quantify (e.g., 5+)"] ,
+      "some": ["quantify or specify"],
+      "a lot": ["quantify (%, $, #)"],
+      "stuff": ["specify technology or task"],
+      "things": ["specify outcomes"],
+      "etc.": ["list representative examples"],
+      "and more": ["summarize key additions"],
+      "tasked with": ["owned","led"],
+      "handled": ["delivered","resolved"],
+      "utilized": ["used","applied"]
+    }
+  },
+  "quantification_patterns": {
+    "percentage": ["\\b\\d{1,3}%\\b"],
+    "currency": ["\\$\\d+[kKmM]?"],
+    "numbers": ["\\b\\d{2,}\\b"],
+    "team_size": ["\\bteam of \\d{1,3}\\b"],
+    "time": ["\\b\\d+ (months?|years?)\\b"]
+  },
+  "buzzwords": {
+    "technology": [
+      "AI","ML","GenAI","LLM","RAG","vector database","cloud","microservices","Kubernetes","serverless",
+      "CI/CD","observability","SRE","DevOps","IaC","Terraform","data mesh","event-driven"
+    ],
+    "marketing": [
+      "SEO","SEM","CRO","A/B Testing","attribution","funnel","CAC","LTV","retention","engagement",
+      "CRM","marketing automation","content strategy","brand","paid media","performance marketing"
+    ],
+    "finance": [
+      "P&L","FP&A","GAAP","SOX","audit","compliance","treasury","forecasting","budgeting","variance analysis",
+      "cost controls","ERP"
+    ],
+    "product": [
+      "JTBD","OKRs","PRD","roadmap","discovery","prioritization","experimentation","activation","retention",
+      "north star metric","user research","usability testing"
+    ],
+    "healthcare": [
+      "HIPAA","EMR","EHR","HL7","ICD-10","claims","payer","provider","clinical trials","telehealth"
+    ],
+    "sales": [
+      "pipeline","CRM","Salesforce","quota","attainment","SaaS","enterprise","inbound","outbound","MEDDIC","SPIN"
+    ],
+    "hr": [
+      "ATS","onboarding","performance management","HRIS","payroll","benefits","DEI","employee engagement"
+    ],
+    "operations": [
+      "lean","six sigma","kaizen","SOP","SLA","supply chain","logistics","procurement","inventory","KPI dashboards"
+    ],
+    "design": [
+      "UX","UI","design systems","wireframes","prototypes","Figma","accessibility","WCAG","usability testing"
+    ]
+  }
+}
+

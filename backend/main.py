@@ -1,4 +1,4 @@
-from fastapi import FastAPI, File, UploadFile, HTTPException, Request
+from fastapi import FastAPI, File, UploadFile, HTTPException, Request, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
@@ -21,6 +21,14 @@ from dateutil import parser as date_parser
 import logging
 import time
 
+# ATS advanced scorer
+from backend.ats.config_loader import (
+    load_language_quality_config,
+    load_professional_language_config,
+    load_industry_keywords,
+)
+from backend.ats.scorer import ats_score as advanced_ats_score
+
 # Configure logging for production
 logging.basicConfig(
     level=logging.INFO,
@@ -38,6 +46,13 @@ app = FastAPI(
     docs_url="/docs",
     redoc_url="/redoc"
 )
+# Preload ATS configs at startup (read-only)
+ATS_BASE_DIR = os.path.join(os.path.dirname(__file__), 'ats')
+try:
+    ATS_LANG_CFG = load_language_quality_config(ATS_BASE_DIR)
+    ATS_PROF_CFG = load_professional_language_config(ATS_BASE_DIR)
+except Exception:
+    ATS_LANG_CFG, ATS_PROF_CFG = {}, {}
 
 # Security middleware
 app.add_middleware(
@@ -519,7 +534,10 @@ def calculate_ats_score(resume_data: ResumeData, original_text: str) -> ATSResul
     )
 
 @app.post("/upload-resume")
-async def upload_resume(file: UploadFile = File(...)):
+async def upload_resume(
+    file: UploadFile = File(...),
+    industry: str = Query(default="technology", description="Target industry for ATS scoring")
+):
     """Upload and parse resume file"""
     start_time = time.time()
     logger.info(f"Processing file upload: {file.filename}")
@@ -584,8 +602,16 @@ async def upload_resume(file: UploadFile = File(...)):
         # Parse resume data
         resume_data = parse_resume_text(text)
         
-        # Calculate ATS score
+        # Calculate ATS score (basic)
         ats_result = calculate_ats_score(resume_data, text)
+
+        # Advanced ATS report (config-driven)
+        try:
+            ind_cfg = load_industry_keywords(ATS_BASE_DIR, industry)
+            advanced_report = advanced_ats_score(text, industry, ATS_LANG_CFG, ATS_PROF_CFG, ind_cfg)
+        except Exception as e:
+            logger.error(f"Advanced ATS scoring failed: {e}")
+            advanced_report = None
         
         # Save to Supabase
         try:
@@ -634,6 +660,7 @@ async def upload_resume(file: UploadFile = File(...)):
             "score_breakdown": ats_result.breakdown,
             "issues": ats_result.issues,
             "recommendations": ats_result.recommendations,
+            "advanced_report": advanced_report,
             "processing_time": processing_time
         })
         
