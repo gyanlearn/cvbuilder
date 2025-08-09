@@ -353,14 +353,13 @@ async def upload_resume(file: UploadFile = File(...)):
         logger.warning(f"Invalid filename: {file.filename}")
         raise HTTPException(status_code=400, detail="Invalid filename")
     
-    # Save uploaded file temporarily
+    # Save uploaded file temporarily and process
     temp_file_path = None
     try:
         with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(file.filename)[1]) as temp_file:
             temp_file.write(content)
             temp_file_path = temp_file.name
-    
-    try:
+
         # Extract text based on file type
         if file.content_type == 'application/pdf':
             text = extract_text_from_pdf(temp_file_path)
