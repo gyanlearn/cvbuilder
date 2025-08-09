@@ -25,6 +25,20 @@ const contactInfo = document.getElementById('contact-info');
 const skillsList = document.getElementById('skills-list');
 const optimizeBtn = document.getElementById('optimize-btn');
 
+// Advanced elements
+const advancedCard = document.getElementById('advanced-card');
+const advancedScore = document.getElementById('advanced-score');
+const advancedScoreBadge = document.getElementById('advanced-score-badge');
+const advGenPct = document.getElementById('adv-gen-pct');
+const advIndPct = document.getElementById('adv-ind-pct');
+const advActionCount = document.getElementById('adv-action-count');
+const advQuantCount = document.getElementById('adv-quant-count');
+const advGrammarCount = document.getElementById('adv-grammar-count');
+const advWeakCount = document.getElementById('adv-weak-count');
+const advMissingGeneral = document.getElementById('adv-missing-general');
+const advMissingIndustry = document.getElementById('adv-missing-industry');
+const advIssuesList = document.getElementById('adv-issues-list');
+
 // Event Listeners
 dropZone.addEventListener('click', () => fileInput.click());
 dropZone.addEventListener('dragover', handleDragOver);
@@ -196,6 +210,14 @@ function displayResults(result) {
     
     // Update parsed data
     updateParsedData(result.parsed_data);
+
+    // Advanced report
+    if (result.advanced_report) {
+        updateAdvanced(result.advanced_report);
+        advancedCard.classList.remove('hidden');
+    } else {
+        advancedCard.classList.add('hidden');
+    }
     
     // Show results
     uploadSection.classList.add('hidden');
@@ -224,6 +246,45 @@ function updateScoreBadge(score) {
     
     scoreBadge.className = `px-3 py-1 rounded-full text-sm font-medium ${color}`;
     scoreBadge.textContent = text;
+}
+
+function updateAdvanced(report) {
+    const score = report.ats_score || 0;
+    advancedScore.textContent = score;
+    const badge = score >= 80 ? ['bg-green-100 text-green-800','Excellent'] :
+                 score >= 60 ? ['bg-blue-100 text-blue-800','Good'] :
+                 score >= 40 ? ['bg-yellow-100 text-yellow-800','Fair'] : ['bg-red-100 text-red-800','Needs Work'];
+    advancedScoreBadge.className = `px-3 py-1 rounded-full text-sm font-medium ${badge[0]}`;
+    advancedScoreBadge.textContent = badge[1];
+
+    // Percentages
+    advGenPct.textContent = `${report.keyword_matches?.percentage ?? 0}%`;
+    advIndPct.textContent = `${report.industry_keyword_matches?.percentage ?? 0}%`;
+    // Counts
+    const actionCount = Object.values(report.action_verbs_found || {}).reduce((a,b)=>a + b.length, 0);
+    advActionCount.textContent = actionCount;
+    const quantCount = Object.values(report.quantification_found || {}).reduce((a,b)=>a + b.length, 0);
+    advQuantCount.textContent = quantCount;
+    advGrammarCount.textContent = (report.grammar_issues || []).length;
+    advWeakCount.textContent = (report.weak_language_found || []).length;
+
+    // Missing keywords chips
+    const mk = (items) => (items || []).slice(0, 10).map(k=>`<span class="px-2 py-1 bg-gray-100 text-gray-700 rounded text-xs">${k}</span>`).join('') || '<span class="text-sm text-gray-500">None</span>';
+    advMissingGeneral.innerHTML = mk(report.keyword_matches?.missing);
+    advMissingIndustry.innerHTML = mk(report.industry_keyword_matches?.missing);
+
+    // Issues list
+    if ((report.issues || []).length === 0) {
+        advIssuesList.innerHTML = '<div class="text-sm text-gray-500">No advanced issues detected.</div>';
+        return;
+    }
+    advIssuesList.innerHTML = (report.issues || []).slice(0, 12).map(i => `
+        <div class="p-3 border rounded-lg bg-gray-50">
+            <div class="text-sm text-gray-900"><strong>${i.type ?? 'issue'}:</strong> ${i.message || ''}</div>
+            ${i.snippet ? `<div class="text-xs text-gray-600 mt-1">“${i.snippet.replaceAll('<','&lt;').replaceAll('>','&gt;')}”</div>` : ''}
+            ${i.suggestion ? `<div class="text-xs text-blue-700 mt-1">Suggestion: ${i.suggestion}</div>` : ''}
+        </div>
+    `).join('');
 }
 
 function updateScoreBreakdown(breakdown) {
