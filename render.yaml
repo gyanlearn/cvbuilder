@@ -29,7 +29,7 @@ services:
     name: cv-parser-frontend
     env: static
     plan: free
-    buildCommand: echo "No build required"
+    buildCommand: npm --prefix frontend ci && npm --prefix frontend run build:css
     staticPublishPath: ./frontend
     envVars:
       - key: API_BASE_URL

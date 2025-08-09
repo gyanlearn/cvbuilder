@@ -1,0 +1,13 @@
+{
+  "name": "cvparser-frontend",
+  "private": true,
+  "version": "1.0.0",
+  "scripts": {
+    "build:css": "postcss assets/tailwind.css -o assets/tailwind.build.css --env production"
+  },
+  "devDependencies": {
+    "tailwindcss": "^3.4.10",
+    "postcss": "^8.4.39",
+    "autoprefixer": "^10.4.19"
+  }
+}
