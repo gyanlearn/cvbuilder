@@ -259,48 +259,58 @@ def _extract_skills(text: str) -> List[str]:
 
 
 def _extract_experience(text: str) -> Dict[str, Optional[int]]:
-    """Detect experience blocks and compute total years approximately."""
-    tl = text.lower()
-    headings = [
-        'work experience','professional experience','experience','employment history','career history','work history','professional background'
-    ]
-    has_exp_section = any(h in tl for h in headings)
-
-    # Date patterns
-    month_names = r"(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)"
-    patterns = [
-        rf"(?P<from>{month_names}\s+\d{{4}})\s*[-–to]+\s*(?P<to>{month_names}\s+\d{{4}}|present|current)",
-        r"(?P<from>\d{4})\s*[-–to]+\s*(?P<to>\d{4}|present|current)",
-        r"(?P<from>\d{1,2}/\d{4})\s*[-–to]+\s*(?P<to>\d{1,2}/\d{4}|present|current)",
-    ]
-    spans = []
-    for pat in patterns:
-        for m in re.finditer(pat, tl, re.IGNORECASE):
-            spans.append((m.group('from'), m.group('to')))
-
-    def parse_dt(s: str) -> datetime:
-        try:
-            return date_parser.parse(s, default=datetime(2000,1,1))
-        except Exception:
-            return None
+    """Compute experience only from Professional/Work Experience sections.
+    Sums all detected job date ranges in those sections: Σ(end - start) in months -> years (floor).
+    """
+    # Identify experience section blocks by heading and slice until next section heading
+    heading_exp = r"^(?:work experience|professional experience|experience|employment history|career history|work history|professional background)\b"
+    heading_other = r"^(?:education|academics|projects|skills|certifications|awards|publications|summary|profile|objective|interests|references|contact|personal)\b"
 
     total_months = 0
-    for f, t in spans:
-        df = parse_dt(f)
-        dt_ = parse_dt(t if t not in {"present","current"} else datetime.utcnow().strftime("%b %Y"))
-        if df and dt_ and dt_ > df:
-            total_months += max(0, (dt_.year - df.year) * 12 + (dt_.month - df.month))
+    has_section = False
 
-    years_from_dates = total_months // 12 if total_months > 0 else (1 if spans else None)
+    # Use multiline matching to find headings at line starts
+    for m in re.finditer(heading_exp, text, flags=re.IGNORECASE | re.MULTILINE):
+        has_section = True
+        start_idx = m.start()
+        # Find the next heading (any section) after this one
+        next_m = re.search(heading_other, text[m.end():], flags=re.IGNORECASE | re.MULTILINE)
+        end_idx = m.end() + next_m.start() if next_m else len(text)
+        block = text[start_idx:end_idx]
 
-    # Also consider phrases like "X+ years of experience"
-    phrase_years = None
-    for m in re.finditer(r"(\d{1,2})\+?\s+years?\s+of\s+experience", text.lower()):
-        val = int(m.group(1))
-        phrase_years = max(phrase_years or 0, val)
+        # Date patterns inside the block
+        month_names = r"(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)"
+        patterns = [
+            rf"(?P<from>{month_names}\s+\d{{4}})\s*(?:[-–to]+|to)\s*(?P<to>{month_names}\s+\d{{4}}|present|current)",
+            r"(?P<from>\d{4})\s*(?:[-–to]+|to)\s*(?P<to>\d{4}|present|current)",
+            r"(?P<from>\d{1,2}/\d{4})\s*(?:[-–to]+|to)\s*(?P<to>\d{1,2}/\d{4}|present|current)",
+        ]
 
-    years = years_from_dates or phrase_years
-    return {"years": years, "has_section": has_exp_section or bool(spans)}
+        def parse_dt(s: str) -> Optional[datetime]:
+            try:
+                return date_parser.parse(s, default=datetime(2000, 1, 1))
+            except Exception:
+                return None
+
+        for pat in patterns:
+            for dm in re.finditer(pat, block, flags=re.IGNORECASE):
+                f = dm.group('from')
+                t = dm.group('to')
+                df = parse_dt(f)
+                dt_ = parse_dt(t if t.lower() not in {"present", "current"} else datetime.utcnow().strftime("%b %Y"))
+                if df and dt_ and dt_ > df:
+                    total_months += max(0, (dt_.year - df.year) * 12 + (dt_.month - df.month))
+
+    years_from_dates = total_months // 12 if total_months > 0 else None
+
+    # If no explicit ranges found but a section exists, optionally fall back to phrase-based estimate
+    years = years_from_dates
+    if years is None and has_section:
+        m = re.search(r"(\d{1,2})\+?\s+years?\s+of\s+experience", text, flags=re.IGNORECASE)
+        if m:
+            years = int(m.group(1))
+
+    return {"years": years, "has_section": has_section}
 
 
 def parse_resume_text(text: str) -> ResumeData:
