@@ -153,8 +153,16 @@ def extract_text_from_docx(file_path: str) -> str:
 
 def extract_text_from_txt(file_path: str) -> str:
     """Extract text from TXT file"""
-    with open(file_path, 'r', encoding='utf-8') as file:
-        return file.read()
+    try:
+        with open(file_path, 'r', encoding='utf-8') as file:
+            return file.read()
+    except UnicodeDecodeError:
+        try:
+            with open(file_path, 'r', encoding='latin-1') as file:
+                return file.read()
+        except Exception:
+            with open(file_path, 'r', errors='ignore') as file:
+                return file.read()
 
 def _extract_phone(text: str) -> Dict[str, Optional[str]]:
     """Extract phone with country code and national number. Prefers patterns like +CC XXXXX..."""
@@ -282,6 +290,7 @@ def _extract_experience(text: str) -> Dict[str, Optional[int]]:
 def parse_resume_text(text: str) -> ResumeData:
     """Parse resume text and extract structured data"""
     data = ResumeData()
+    text_lower = text.lower()
     
     # Email extraction
     email_pattern = r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b'
