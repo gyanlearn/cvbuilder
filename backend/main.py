@@ -48,7 +48,7 @@ app.add_middleware(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "https://cv-parser-frontend.onrender.com",
+        "https://cv-parser-frontend-qgx0.onrender.com",
         "http://localhost:3000",  # For development
         "https://localhost:3000"
     ],
