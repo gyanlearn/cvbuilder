@@ -205,7 +205,7 @@ def _extract_skills(text: str) -> List[str]:
             # split by commas, bullets, pipes
             tokens = re.split(r"[,•\u2022\-|\n]", body)
             for tok in tokens:
-                tok_norm = tok.strip().lower()
+                tok_norm = re.sub(r"\s+", " ", tok.strip().lower())
                 if 2 <= len(tok_norm) <= 60:
                     skills_found.add(tok_norm)
 
@@ -220,6 +220,8 @@ def _extract_skills(text: str) -> List[str]:
         'a/b testing','ab testing','split testing','experiment design','experimentation','growth hacking','growth strategy','activation',
         'retention','monetization','pricing','segmentation','okrs','kpis','analytics','mixpanel','amplitude','google analytics',
         'agile methodology','stakeholder management','feature prioritization','impact mapping','jobs to be done','jtbd',
+        # Common product synonyms
+        'product mgmt','product ops','growth product','product discovery','roadmap planning','experimentation platform',
     ]
     for kw in keywords:
         if kw in tl:
@@ -241,9 +243,15 @@ def _extract_skills(text: str) -> List[str]:
         'okrs':'OKRs',
         'kpis':'KPIs',
         'ai':'AI',
+        'product mgmt':'Product Management',
+        'product ops':'Product Operations',
+        'growth product':'Growth Product',
+        'roadmap planning':'Product Roadmap',
     }
     for s in skills_found:
-        s2 = mapping.get(s, cap(s))
+        # normalize extra whitespace and dashes
+        s_norm = re.sub(r"\s+", " ", s.strip())
+        s2 = mapping.get(s_norm, cap(s_norm))
         mapped.add(s2)
     # Deduplicate by case-insensitive key
     final = sorted({x.lower(): x for x in mapped}.values())
@@ -283,7 +291,15 @@ def _extract_experience(text: str) -> Dict[str, Optional[int]]:
         if df and dt_ and dt_ > df:
             total_months += max(0, (dt_.year - df.year) * 12 + (dt_.month - df.month))
 
-    years = total_months // 12 if total_months > 0 else (1 if spans else None)
+    years_from_dates = total_months // 12 if total_months > 0 else (1 if spans else None)
+
+    # Also consider phrases like "X+ years of experience"
+    phrase_years = None
+    for m in re.finditer(r"(\d{1,2})\+?\s+years?\s+of\s+experience", text.lower()):
+        val = int(m.group(1))
+        phrase_years = max(phrase_years or 0, val)
+
+    years = years_from_dates or phrase_years
     return {"years": years, "has_section": has_exp_section or bool(spans)}
 
 
@@ -323,6 +339,36 @@ def parse_resume_text(text: str) -> ResumeData:
     exp = _extract_experience(text)
     if exp["years"]:
         data.no_of_years_experience = int(exp["years"])
+
+    # Address extraction (simple heuristics)
+    def _extract_address_block(t: str) -> Optional[str]:
+        lines = [ln.strip() for ln in t.splitlines() if ln.strip()]
+        # Try after an Address heading
+        for i, ln in enumerate(lines):
+            if re.match(r"^address\b[:]?", ln, re.IGNORECASE):
+                # take next 1-2 lines as address
+                chunk = ", ".join([x for x in lines[i+1:i+3] if x])
+                if len(chunk) >= 10:
+                    return chunk
+        # Otherwise, find first line that looks like a location (contains comma and letters)
+        for ln in lines[:12]:  # usually contact block is near top
+            if ("," in ln and len(ln) <= 120 and not re.search(r"(linkedin|github|@|http)", ln, re.I)):
+                return ln
+        return None
+
+    data.address = _extract_address_block(text)
+
+    # Summary extraction
+    def _extract_summary(t: str) -> Optional[str]:
+        m = re.search(r"(?:^|\n)\s*(professional\s+summary|summary|profile|about\s+me)\s*[:\n]+(?P<body>(?:.+\n?){1,6})", t, re.IGNORECASE)
+        if m:
+            body = m.group("body")
+            # stop at next all-caps heading or blank gap
+            body = re.split(r"\n\s*\n|\n[A-Z][A-Z\s]{2,}\n", body)[0]
+            return re.sub(r"\s+", " ", body).strip()
+        return None
+
+    data.summary = _extract_summary(text)
     
     # Education extraction
     education_keywords = ['bachelor', 'master', 'phd', 'degree', 'university', 'college']
@@ -363,8 +409,11 @@ def calculate_ats_score(resume_data: ResumeData, original_text: str) -> ATSResul
     breakdown["contact"] = contact_score
     score += contact_score
     
-    # 2. Keywords & Skills Relevance (25 pts)
-    skills_score = min(len(resume_data.skills) * 2, 25)
+    # 2. Keywords & Skills Relevance (25 pts) – stricter: 1 point per unique skill, cap 20; +5 bonus if both product and engineering skills present
+    product_flags = any(s.lower().startswith("product ") or s.lower() in {"a/b testing","jobs to be done","growth hacking","okrs","kpis"} for s in resume_data.skills)
+    engineering_flags = any(s.lower() in {"python","javascript","java","sql","docker","kubernetes","aws","react","node.js"} for s in resume_data.skills)
+    base_skills = min(len(resume_data.skills), 20)
+    skills_score = base_skills + (5 if product_flags and engineering_flags else 0)
     breakdown["skills"] = skills_score
     score += skills_score
     
@@ -389,13 +438,13 @@ def calculate_ats_score(resume_data: ResumeData, original_text: str) -> ATSResul
         if not _extract_experience(original_text)["has_section"]:
             issues.append({"priority": "high", "category": "experience", "message": "Missing work experience"})
     
-    # 5. Structure & Formatting (15 pts)
-    structure_score = 15  # Basic score, can be enhanced with more analysis
+    # 5. Structure & Formatting (15 pts) – stricter baseline
+    structure_score = 10
     breakdown["structure"] = structure_score
     score += structure_score
     
-    # 6. Readability & Grammar (15 pts)
-    readability_score = 15  # Basic score, can be enhanced with LLM analysis
+    # 6. Readability & Grammar (15 pts) – stricter baseline
+    readability_score = 10
     breakdown["readability"] = readability_score
     score += readability_score
     
