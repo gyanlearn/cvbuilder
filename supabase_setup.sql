@@ -3,6 +3,8 @@ CREATE TABLE IF NOT EXISTS resumes (
     id SERIAL PRIMARY KEY,
     email TEXT,
     mobile TEXT,
+    mobile_country_code TEXT,
+    mobile_national_number TEXT,
     address TEXT,
     skills TEXT[],
     experience JSONB,

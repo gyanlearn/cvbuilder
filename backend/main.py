@@ -99,6 +99,8 @@ except Exception as e:
 class ResumeData(BaseModel):
     email: Optional[str] = None
     mobile: Optional[str] = None
+    mobile_country_code: Optional[str] = None
+    mobile_national_number: Optional[str] = None
     address: Optional[str] = None
     skills: List[str] = []
     experience: List[Dict] = []
@@ -149,6 +151,129 @@ def extract_text_from_txt(file_path: str) -> str:
     with open(file_path, 'r', encoding='utf-8') as file:
         return file.read()
 
+def _extract_phone(text: str) -> Dict[str, Optional[str]]:
+    """Extract phone with country code and national number. Prefers patterns like +CC XXXXX..."""
+    # Normalize whitespace
+    cleaned = re.sub(r"[\t\r]", " ", text)
+    # Common patterns: +91 9876543210, +44-7700-900123, +1 (555) 123-4567
+    patterns = [
+        r"\+(?P<cc>\d{1,3})[\s\-()]*?(?P<num>(?:\d[\s\-()]*){7,15})",
+        r"(?P<num>\(?\d{3}\)?[\s\-.]?\d{3}[\s\-.]?\d{4})"  # fallback US pattern
+    ]
+    for pat in patterns:
+        m = re.search(pat, cleaned)
+        if m:
+            cc = m.groupdict().get("cc")
+            raw_num = m.groupdict().get("num") or m.group(0)
+            national = re.sub(r"[^\d]", "", raw_num)
+            if cc and national.startswith(cc):
+                # Remove repeated cc if present
+                national = national[len(cc):]
+            return {
+                "mobile": f"+{cc}{national}" if cc else national,
+                "mobile_country_code": f"+{cc}" if cc else None,
+                "mobile_national_number": national if national else None,
+            }
+    return {"mobile": None, "mobile_country_code": None, "mobile_national_number": None}
+
+
+def _extract_skills(text: str) -> List[str]:
+    """Extract skills from explicit skills sections and via keyword matching."""
+    skills_found: set[str] = set()
+    tl = text.lower()
+
+    # 1) Parse Skills section blocks
+    section_patterns = [
+        r"(?:^|\n)\s*(skills|technical skills|core competencies|competencies|areas of expertise)\s*[:\n]\s*(?P<body>(?:.+\n?){1,6})",
+    ]
+    for sp in section_patterns:
+        for sm in re.finditer(sp, text, re.IGNORECASE):
+            body = sm.group("body")
+            # split by commas, bullets, pipes
+            tokens = re.split(r"[,•\u2022\-|\n]", body)
+            for tok in tokens:
+                tok_norm = tok.strip().lower()
+                if 2 <= len(tok_norm) <= 60:
+                    skills_found.add(tok_norm)
+
+    # 2) Keyword dictionary (expandable)
+    keywords = [
+        # Engineering
+        'python','javascript','java','c++','c#','php','ruby','go','rust','react','angular','vue','node.js','django','flask','spring',
+        'docker','kubernetes','aws','azure','gcp','sql','mongodb','redis','git','jenkins','agile','scrum','machine learning','ai','data science',
+        'tableau','power bi','excel','word','powerpoint','graphql','rest','microservices','spark','hadoop',
+        # Product & growth
+        'product management','product strategy','product leadership','product roadmap','roadmapping','user research','user interviews',
+        'a/b testing','ab testing','split testing','experiment design','experimentation','growth hacking','growth strategy','activation',
+        'retention','monetization','pricing','segmentation','okrs','kpis','analytics','mixpanel','amplitude','google analytics',
+        'agile methodology','stakeholder management','feature prioritization','impact mapping','jobs to be done','jtbd',
+    ]
+    for kw in keywords:
+        if kw in tl:
+            skills_found.add(kw)
+
+    # Normalize capitalization
+    def cap(s: str) -> str:
+        if s.upper() in {"OKRS","KPIS","SQL","AI"}:
+            return s.upper()
+        # title case for multi-words while preserving slashes and hyphens
+        return " ".join(w.capitalize() if not w.isupper() else w for w in re.split(r"(\b)", s))
+
+    # Map common variants
+    mapped = set()
+    mapping = {
+        'ab testing':'A/B Testing',
+        'a/b testing':'A/B Testing',
+        'jtbd':'Jobs To Be Done',
+        'okrs':'OKRs',
+        'kpis':'KPIs',
+        'ai':'AI',
+    }
+    for s in skills_found:
+        s2 = mapping.get(s, cap(s))
+        mapped.add(s2)
+    # Deduplicate by case-insensitive key
+    final = sorted({x.lower(): x for x in mapped}.values())
+    return final
+
+
+def _extract_experience(text: str) -> Dict[str, Optional[int]]:
+    """Detect experience blocks and compute total years approximately."""
+    tl = text.lower()
+    headings = [
+        'work experience','professional experience','experience','employment history','career history','work history','professional background'
+    ]
+    has_exp_section = any(h in tl for h in headings)
+
+    # Date patterns
+    month_names = r"(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)"
+    patterns = [
+        rf"(?P<from>{month_names}\s+\d{{4}})\s*[-–to]+\s*(?P<to>{month_names}\s+\d{{4}}|present|current)",
+        r"(?P<from>\d{4})\s*[-–to]+\s*(?P<to>\d{4}|present|current)",
+        r"(?P<from>\d{1,2}/\d{4})\s*[-–to]+\s*(?P<to>\d{1,2}/\d{4}|present|current)",
+    ]
+    spans = []
+    for pat in patterns:
+        for m in re.finditer(pat, tl, re.IGNORECASE):
+            spans.append((m.group('from'), m.group('to')))
+
+    def parse_dt(s: str) -> datetime:
+        try:
+            return date_parser.parse(s, default=datetime(2000,1,1))
+        except Exception:
+            return None
+
+    total_months = 0
+    for f, t in spans:
+        df = parse_dt(f)
+        dt_ = parse_dt(t if t not in {"present","current"} else datetime.utcnow().strftime("%b %Y"))
+        if df and dt_ and dt_ > df:
+            total_months += max(0, (dt_.year - df.year) * 12 + (dt_.month - df.month))
+
+    years = total_months // 12 if total_months > 0 else (1 if spans else None)
+    return {"years": years, "has_section": has_exp_section or bool(spans)}
+
+
 def parse_resume_text(text: str) -> ResumeData:
     """Parse resume text and extract structured data"""
     data = ResumeData()
@@ -158,12 +283,12 @@ def parse_resume_text(text: str) -> ResumeData:
     emails = re.findall(email_pattern, text)
     if emails:
         data.email = emails[0]
-    
-    # Phone number extraction
-    phone_pattern = r'(\+?1?[-.\s]?)?\(?([0-9]{3})\)?[-.\s]?([0-9]{3})[-.\s]?([0-9]{4})'
-    phones = re.findall(phone_pattern, text)
-    if phones:
-        data.mobile = ''.join(phones[0])
+
+    # Phone number extraction (country code + national number)
+    phone = _extract_phone(text)
+    data.mobile = phone["mobile"]
+    data.mobile_country_code = phone["mobile_country_code"]
+    data.mobile_national_number = phone["mobile_national_number"]
     
     # LinkedIn extraction
     linkedin_pattern = r'linkedin\.com/in/[a-zA-Z0-9-]+'
@@ -177,26 +302,13 @@ def parse_resume_text(text: str) -> ResumeData:
     if github_matches:
         data.github = f"https://www.{github_matches[0]}"
     
-    # Skills extraction (common programming languages and tools)
-    skills_keywords = [
-        'python', 'javascript', 'java', 'c++', 'c#', 'php', 'ruby', 'go', 'rust',
-        'react', 'angular', 'vue', 'node.js', 'django', 'flask', 'spring',
-        'docker', 'kubernetes', 'aws', 'azure', 'gcp', 'sql', 'mongodb',
-        'redis', 'git', 'jenkins', 'agile', 'scrum', 'machine learning',
-        'ai', 'data science', 'tableau', 'power bi', 'excel', 'word', 'powerpoint'
-    ]
+    # Skills extraction
+    data.skills = _extract_skills(text)
     
-    text_lower = text.lower()
-    for skill in skills_keywords:
-        if skill in text_lower:
-            data.skills.append(skill.title())
-    
-    # Experience extraction (basic pattern matching)
-    experience_pattern = r'(\d{4})\s*[-–]\s*(\d{4}|present|current)'
-    experience_matches = re.findall(experience_pattern, text, re.IGNORECASE)
-    
-    if experience_matches:
-        data.no_of_years_experience = len(experience_matches)
+    # Experience extraction
+    exp = _extract_experience(text)
+    if exp["years"]:
+        data.no_of_years_experience = int(exp["years"])
     
     # Education extraction
     education_keywords = ['bachelor', 'master', 'phd', 'degree', 'university', 'college']
@@ -254,12 +366,14 @@ def calculate_ats_score(resume_data: ResumeData, original_text: str) -> ATSResul
         issues.append({"priority": "medium", "category": "education", "message": "Missing education information"})
     
     # 4. Work Experience (20 pts)
-    experience_score = min(resume_data.no_of_years_experience * 4, 20) if resume_data.no_of_years_experience else 0
+    experience_score = min((resume_data.no_of_years_experience or 0) * 4, 20)
     breakdown["experience"] = experience_score
     score += experience_score
     
     if not resume_data.no_of_years_experience:
-        issues.append({"priority": "high", "category": "experience", "message": "Missing work experience"})
+        # Only flag if we truly cannot detect an experience section
+        if not _extract_experience(original_text)["has_section"]:
+            issues.append({"priority": "high", "category": "experience", "message": "Missing work experience"})
     
     # 5. Structure & Formatting (15 pts)
     structure_score = 15  # Basic score, can be enhanced with more analysis
@@ -306,7 +420,8 @@ def calculate_ats_score(resume_data: ResumeData, original_text: str) -> ATSResul
     # Check for creative job titles
     creative_titles = ['ninja', 'guru', 'rockstar', 'wizard', 'hero']
     for title in creative_titles:
-        if title in original_text.lower():
+        # Use word boundaries to avoid matching in place names like Gurugram
+        if re.search(rf"\\b{re.escape(title)}\\b", original_text.lower()):
             penalties.append(-2)
             issues.append({"priority": "medium", "category": "formatting", "message": f"Avoid creative job titles like '{title}'"})
     

@@ -3,7 +3,7 @@
   "private": true,
   "version": "1.0.0",
   "scripts": {
-    "build:css": "postcss assets/tailwind.css -o assets/tailwind.build.css --env production"
+    "build:css": "postcss assets/tailwind.css -o assets/styles.css --env production"
   },
   "devDependencies": {
     "tailwindcss": "^3.4.10",

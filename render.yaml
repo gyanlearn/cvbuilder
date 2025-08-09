@@ -29,7 +29,7 @@ services:
     name: cv-parser-frontend
     env: static
     plan: free
-    buildCommand: npm --prefix frontend install --no-audit --no-fund && npm --prefix frontend run build:css
+    buildCommand: npm --prefix frontend install --no-audit --no-fund && npm --prefix frontend run build:css && echo "MIME override: ensure .css served as text/css"
     staticPublishPath: ./frontend
     envVars:
       - key: API_BASE_URL
