@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CV Parser & ATS Scorer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#3B82F6',
+                        secondary: '#10B981',
+                        accent: '#F59E0B',
+                        danger: '#EF4444'
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .drop-zone {
+            transition: all 0.3s ease;
+        }
+        .drop-zone.dragover {
+            border-color: #3B82F6;
+            background-color: #EFF6FF;
+        }
+        .score-gauge {
+            background: conic-gradient(from 0deg, #EF4444 0deg, #F59E0B 72deg, #10B981 144deg, #3B82F6 216deg, #8B5CF6 288deg, #EF4444 360deg);
+        }
+        .loading-spinner {
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <!-- Header -->
+    <header class="bg-white shadow-sm border-b">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center py-4">
+                <div class="flex items-center">
+                    <div class="w-8 h-8 bg-primary rounded-lg flex items-center justify-center mr-3">
+                        <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                        </svg>
+                    </div>
+                    <h1 class="text-xl font-bold text-gray-900">CV Parser & ATS Scorer</h1>
+                </div>
+                <div class="text-sm text-gray-500">
+                    Powered by AI
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <!-- Upload Section -->
+        <div id="upload-section" class="bg-white rounded-lg shadow-sm border p-6 mb-8">
+            <div class="text-center mb-6">
+                <h2 class="text-2xl font-bold text-gray-900 mb-2">Upload Your Resume</h2>
+                <p class="text-gray-600">Get instant ATS scoring and optimization suggestions</p>
+            </div>
+
+            <!-- File Upload Area -->
+            <div id="drop-zone" class="drop-zone border-2 border-dashed border-gray-300 rounded-lg p-8 text-center cursor-pointer hover:border-primary hover:bg-gray-50 transition-colors">
+                <div class="space-y-4">
+                    <div class="mx-auto w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center">
+                        <svg class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+                        </svg>
+                    </div>
+                    <div>
+                        <p class="text-lg font-medium text-gray-900">Drop your resume here</p>
+                        <p class="text-sm text-gray-500">or click to browse</p>
+                    </div>
+                    <div class="text-xs text-gray-400">
+                        Supports PDF, DOCX, and TXT files (max 10MB)
+                    </div>
+                </div>
+                <input type="file" id="file-input" class="hidden" accept=".pdf,.docx,.txt">
+            </div>
+
+            <!-- Progress Bar -->
+            <div id="progress-container" class="hidden mt-6">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-sm font-medium text-gray-700">Processing...</span>
+                    <span id="progress-text" class="text-sm text-gray-500">0%</span>
+                </div>
+                <div class="w-full bg-gray-200 rounded-full h-2">
+                    <div id="progress-bar" class="bg-primary h-2 rounded-full transition-all duration-300" style="width: 0%"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Results Section -->
+        <div id="results-section" class="hidden space-y-6">
+            <!-- ATS Score Card -->
+            <div class="bg-white rounded-lg shadow-sm border p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-lg font-semibold text-gray-900">ATS Score</h3>
+                    <div id="score-badge" class="px-3 py-1 rounded-full text-sm font-medium"></div>
+                </div>
+                
+                <div class="flex items-center justify-center mb-6">
+                    <div class="relative">
+                        <div id="score-gauge" class="w-32 h-32 rounded-full score-gauge flex items-center justify-center">
+                            <div class="w-24 h-24 bg-white rounded-full flex items-center justify-center">
+                                <span id="score-value" class="text-2xl font-bold text-gray-900">0</span>
+                            </div>
+                        </div>
+                        <div class="absolute inset-0 rounded-full score-gauge opacity-20"></div>
+                    </div>
+                </div>
+
+                <!-- Score Breakdown -->
+                <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
+                    <div id="contact-score" class="text-center p-3 bg-gray-50 rounded-lg">
+                        <div class="text-sm text-gray-600">Contact Info</div>
+                        <div class="text-lg font-semibold text-gray-900">0/15</div>
+                    </div>
+                    <div id="skills-score" class="text-center p-3 bg-gray-50 rounded-lg">
+                        <div class="text-sm text-gray-600">Skills</div>
+                        <div class="text-lg font-semibold text-gray-900">0/25</div>
+                    </div>
+                    <div id="education-score" class="text-center p-3 bg-gray-50 rounded-lg">
+                        <div class="text-sm text-gray-600">Education</div>
+                        <div class="text-lg font-semibold text-gray-900">0/10</div>
+                    </div>
+                    <div id="experience-score" class="text-center p-3 bg-gray-50 rounded-lg">
+                        <div class="text-sm text-gray-600">Experience</div>
+                        <div class="text-lg font-semibold text-gray-900">0/20</div>
+                    </div>
+                    <div id="structure-score" class="text-center p-3 bg-gray-50 rounded-lg">
+                        <div class="text-sm text-gray-600">Structure</div>
+                        <div class="text-lg font-semibold text-gray-900">0/15</div>
+                    </div>
+                    <div id="readability-score" class="text-center p-3 bg-gray-50 rounded-lg">
+                        <div class="text-sm text-gray-600">Readability</div>
+                        <div class="text-lg font-semibold text-gray-900">0/15</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Issues Card -->
+            <div id="issues-card" class="bg-white rounded-lg shadow-sm border p-6">
+                <h3 class="text-lg font-semibold text-gray-900 mb-4">Issues Found</h3>
+                <div id="issues-list" class="space-y-3">
+                    <!-- Issues will be populated here -->
+                </div>
+            </div>
+
+            <!-- Parsed Data Card -->
+            <div id="parsed-data-card" class="bg-white rounded-lg shadow-sm border p-6">
+                <h3 class="text-lg font-semibold text-gray-900 mb-4">Parsed Information</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <h4 class="font-medium text-gray-900 mb-3">Contact Information</h4>
+                        <div id="contact-info" class="space-y-2 text-sm">
+                            <!-- Contact info will be populated here -->
+                        </div>
+                    </div>
+                    <div>
+                        <h4 class="font-medium text-gray-900 mb-3">Skills</h4>
+                        <div id="skills-list" class="flex flex-wrap gap-2">
+                            <!-- Skills will be populated here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- CTA Card -->
+            <div class="bg-gradient-to-r from-primary to-blue-600 rounded-lg p-6 text-white text-center">
+                <h3 class="text-xl font-bold mb-2">Ready to optimize your resume?</h3>
+                <p class="text-blue-100 mb-4">Get AI-powered suggestions to improve your ATS score</p>
+                <button id="optimize-btn" class="bg-white text-primary px-6 py-3 rounded-lg font-semibold hover:bg-gray-50 transition-colors">
+                    Fix My Resume with AI
+                </button>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-white border-t mt-12">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+            <div class="text-center text-sm text-gray-500">
+                <p>&copy; 2024 CV Parser & ATS Scorer. Powered by AI technology.</p>
+            </div>
+        </div>
+    </footer>
+
+    <script src="script.js"></script>
+</body>
+</html>
