@@ -30,6 +30,7 @@ from backend.ats.config_loader import (
     load_industry_keywords,
 )
 from backend.ats.scorer import ats_score as advanced_ats_score
+from backend.ats.cv_improver import CVImprover
 
 # Configure logging for production
 logging.basicConfig(
@@ -738,6 +739,142 @@ async def upload_resume(
                 os.unlink(temp_file_path)
             except Exception as e:
                 logger.error(f"Failed to cleanup temp file: {e}")
+
+@app.options("/improve-cv")
+async def improve_cv_options():
+    """Handle CORS preflight request for CV improvement endpoint"""
+    return JSONResponse(
+        content={"message": "CORS preflight"},
+        headers={
+            "Access-Control-Allow-Origin": "https://cv-parser-frontend-qgx0.onrender.com",
+            "Access-Control-Allow-Methods": "POST, OPTIONS",
+            "Access-Control-Allow-Headers": "*",
+            "Access-Control-Max-Age": "86400"
+        }
+    )
+
+@app.post("/improve-cv")
+async def improve_cv(
+    file: UploadFile = File(...),
+    industry: str = Query(default="technology", description="Target industry for ATS scoring")
+):
+    """
+    Improve CV based on ATS feedback using Gemini Flash 2.0 and generate improved PDF
+    """
+    if not model:
+        raise HTTPException(status_code=503, detail="AI model not available")
+    
+    # Validate file type
+    allowed_types = ['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'text/plain']
+    if file.content_type not in allowed_types:
+        raise HTTPException(status_code=400, detail="Invalid file type. Only PDF, DOCX, and TXT files are allowed.")
+    
+    # Validate file size (10MB limit)
+    content = await file.read()
+    if len(content) > 10 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="File size must be less than 10MB")
+    
+    # Save uploaded file temporarily and process
+    temp_file_path = None
+    cv_improver = None
+    
+    try:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(file.filename)[1]) as temp_file:
+            temp_file.write(content)
+            temp_file_path = temp_file.name
+
+        # Extract text based on file type
+        if file.content_type == 'application/pdf':
+            text = extract_text_from_pdf(temp_file_path)
+        elif file.content_type == 'application/vnd.openxmlformats-officedocument.wordprocessingml.document':
+            text = extract_text_from_docx(temp_file_path)
+        else:  # text/plain
+            text = extract_text_from_txt(temp_file_path)
+        
+        # Get ATS feedback first
+        try:
+            ind_cfg = load_industry_keywords(ATS_BASE_DIR, industry)
+            ats_feedback = advanced_ats_score(text, industry, ATS_LANG_CFG, ATS_PROF_CFG, ind_cfg, model)
+            original_score = ats_feedback.get('ats_score', 0)
+            logger.info(f"ATS analysis completed. Score: {original_score}")
+        except Exception as e:
+            logger.error(f"ATS analysis failed: {e}")
+            raise HTTPException(status_code=500, detail="Failed to analyze CV for ATS scoring")
+        
+        # Initialize CV improver
+        cv_improver = CVImprover(model)
+        
+        # Improve CV
+        improvement_result = cv_improver.improve_cv(
+            original_cv_text=text,
+            ats_feedback=ats_feedback,
+            industry=industry,
+            original_score=original_score
+        )
+        
+        if not improvement_result.get('success'):
+            raise HTTPException(status_code=500, detail=improvement_result.get('error', 'CV improvement failed'))
+        
+        # Upload improved PDF to Supabase Storage
+        improved_pdf_url = None
+        if supabase:
+            try:
+                bucket_name = os.getenv("SUPABASE_BUCKET", "resumes")
+                pdf_filename = os.path.basename(improvement_result['pdf_path'])
+                storage_key = f"improved/{datetime.utcnow().strftime('%Y/%m/%d')}/{pdf_filename}"
+                
+                with open(improvement_result['pdf_path'], "rb") as fbin:
+                    pdf_bytes = fbin.read()
+                
+                supabase.storage.from_(bucket_name).upload(
+                    path=storage_key,
+                    file=pdf_bytes,
+                    file_options={"content-type": "application/pdf"}
+                )
+                
+                improved_pdf_url = supabase.storage.from_(bucket_name).get_public_url(storage_key)
+                logger.info(f"Uploaded improved PDF to Supabase: {storage_key}")
+                
+            except Exception as e:
+                logger.error(f"Failed to upload improved PDF to Supabase: {e}")
+        
+        return JSONResponse(content={
+            "success": True,
+            "original_score": original_score,
+            "new_score": improvement_result['new_score'],
+            "improvement_strategy": improvement_result['improvement_strategy'],
+            "improved_cv_text": improvement_result['improved_cv_text'],
+            "pdf_download_url": improved_pdf_url,
+            "changes_made": improvement_result['changes_made'],
+            "ats_feedback_summary": {
+                "issues_count": len(ats_feedback.get('issues', [])),
+                "missing_keywords": len(ats_feedback.get('keyword_matches', {}).get('missing', [])),
+                "grammar_issues": len([i for i in ats_feedback.get('issues', []) if i.get('type') == 'grammar']),
+                "spelling_issues": len([i for i in ats_feedback.get('issues', []) if i.get('type') == 'spelling'])
+            },
+            "timestamp": datetime.utcnow().isoformat()
+        }, headers={
+            "Access-Control-Allow-Origin": "https://cv-parser-frontend-qgx0.onrender.com",
+            "Access-Control-Allow-Methods": "POST, OPTIONS",
+            "Access-Control-Allow-Headers": "*"
+        })
+        
+    except HTTPException:
+        # Re-raise HTTP exceptions
+        raise
+    except Exception as e:
+        logger.error(f"Unexpected error improving CV: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error occurred while improving the CV")
+    finally:
+        # Clean up temporary files
+        if temp_file_path and os.path.exists(temp_file_path):
+            try:
+                os.unlink(temp_file_path)
+            except Exception as e:
+                logger.error(f"Failed to cleanup temp file: {e}")
+        
+        if cv_improver:
+            cv_improver.cleanup()
 
 @app.get("/test-cors")
 async def test_cors():
