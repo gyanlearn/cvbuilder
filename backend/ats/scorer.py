@@ -65,12 +65,13 @@ def calc_readability(text: str, cfg: Dict[str, Any]) -> Dict[str, Any]:
         'warnings': warnings
     }
 
-def regex_findall(patterns: List[str], text: str) -> List[re.Match]:
+def regex_findall(patterns: List[str], text: str) -> List[str]:
     """Find all regex matches in text"""
     matches = []
     for pattern in patterns:
         try:
-            matches.extend(re.finditer(pattern, text, re.IGNORECASE))
+            # Return the actual matched text, not Match objects
+            matches.extend(re.findall(pattern, text, re.IGNORECASE))
         except re.error as e:
             logger.warning(f"Invalid regex pattern '{pattern}': {e}")
     return matches
@@ -276,7 +277,7 @@ def ats_score(cv_text: str, industry: str, lang_cfg: Dict[str, Any], prof_cfg: D
     for ph in weak_phrases:
         for m in re.finditer(r"(^|\W)"+re.escape(ph.lower())+r"(\W|$)", norm):
             repl = weak_to_strong.get(ph, [])
-            weak_hits.append({'phrase': ph, 'suggest': repl, 'pos': m.span()})
+            weak_hits.append({'phrase': ph, 'suggest': repl, 'pos': (m.start(), m.end())})
 
     # Buzzwords
     buzz_found, _ = count_matches(norm, [b.lower() for b in buzzwords])
