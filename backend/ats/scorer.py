@@ -129,19 +129,131 @@ def ats_score(cv_text: str, industry: str, lang_cfg: Dict[str, Any], prof_cfg: D
                 'examples': examples
             })
 
-    # Spelling (very simple: find tokens not in any dictionary)
+    # Spelling (improved: handle compound words, proper nouns, and common terms)
     spelling_suggestions = []
     if spelling_dicts:
         lex = set()
         for d in spelling_dicts:
             for w in d:
                 lex.add(w.lower())
-        for w in set(re.findall(r"[a-zA-Z]{3,}", cv_text)):
+        
+        # Add common compound terms and proper nouns
+        common_terms = {
+            'fastest', 'software', 'engineer', 'heading', 'omni', 'channel', 'omni-channel',
+            'frontend', 'backend', 'fullstack', 'full-stack', 'web', 'mobile', 'desktop',
+            'database', 'api', 'rest', 'graphql', 'microservice', 'microservices',
+            'devops', 'ci', 'cd', 'pipeline', 'deployment', 'infrastructure',
+            'cloud', 'aws', 'azure', 'gcp', 'heroku', 'vercel', 'netlify',
+            'javascript', 'typescript', 'python', 'java', 'csharp', 'c++', 'go', 'rust',
+            'react', 'vue', 'angular', 'node', 'express', 'django', 'flask', 'fastapi',
+            'postgresql', 'mysql', 'mongodb', 'redis', 'elasticsearch', 'kafka',
+            'docker', 'kubernetes', 'terraform', 'ansible', 'jenkins', 'github', 'gitlab',
+            'agile', 'scrum', 'kanban', 'waterfall', 'lean', 'sixsigma', 'togaf',
+            'ux', 'ui', 'design', 'research', 'prototype', 'wireframe', 'mockup',
+            'analytics', 'metrics', 'dashboard', 'reporting', 'visualization',
+            'machine', 'learning', 'artificial', 'intelligence', 'neural', 'network',
+            'blockchain', 'cryptocurrency', 'nft', 'defi', 'web3', 'metaverse'
+        }
+        
+        # Add common terms to lexicon
+        for term in common_terms:
+            lex.add(term.lower())
+        
+        # Add common basic vocabulary to eliminate false positives
+        basic_vocab = {
+            'for', 'the', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'from', 'with', 'by',
+            'of', 'a', 'an', 'is', 'are', 'was', 'were', 'be', 'been', 'being', 'have', 'has',
+            'had', 'do', 'does', 'did', 'will', 'would', 'could', 'should', 'may', 'might',
+            'can', 'must', 'shall', 'this', 'that', 'these', 'those', 'here', 'there',
+            'when', 'where', 'why', 'how', 'what', 'which', 'who', 'whom', 'whose',
+            'if', 'then', 'else', 'while', 'until', 'since', 'during', 'before', 'after',
+            'above', 'below', 'under', 'over', 'between', 'among', 'through', 'across',
+            'into', 'onto', 'upon', 'within', 'without', 'against', 'toward', 'towards',
+            'about', 'around', 'across', 'along', 'beside', 'beyond', 'inside', 'outside',
+            'project', 'integration', 'development', 'implementation', 'deployment',
+            'management', 'administration', 'coordination', 'collaboration', 'communication',
+            'documentation', 'specification', 'configuration', 'optimization', 'automation',
+            'monitoring', 'testing', 'debugging', 'maintenance', 'support', 'training',
+            'research', 'analysis', 'design', 'planning', 'execution', 'delivery',
+            'evaluation', 'assessment', 'review', 'audit', 'compliance', 'security',
+            'performance', 'scalability', 'reliability', 'availability', 'usability',
+            'best', 'good', 'great', 'excellent', 'outstanding', 'superior', 'quality',
+            'efficient', 'effective', 'successful', 'innovative', 'creative', 'strategic',
+            'technical', 'professional', 'experienced', 'skilled', 'knowledgeable',
+            'responsible', 'accountable', 'dedicated', 'motivated', 'results-oriented'
+        }
+        
+        # Add basic vocabulary to lexicon
+        for word in basic_vocab:
+            lex.add(word.lower())
+        
+        # Add common compound terms that might appear in CVs
+        compound_terms = {
+            'software engineer', 'software developer', 'frontend developer', 'backend developer',
+            'full stack developer', 'fullstack developer', 'web developer', 'mobile developer',
+            'data engineer', 'data scientist', 'machine learning engineer', 'ml engineer',
+            'devops engineer', 'site reliability engineer', 'sre', 'qa engineer',
+            'test engineer', 'quality assurance engineer', 'ui designer', 'ux designer',
+            'product manager', 'project manager', 'program manager', 'technical lead',
+            'team lead', 'engineering manager', 'senior engineer', 'principal engineer',
+            'staff engineer', 'senior developer', 'lead developer', 'architect',
+            'solution architect', 'enterprise architect', 'cloud architect', 'security engineer',
+            'network engineer', 'systems engineer', 'infrastructure engineer'
+        }
+        
+        # Add compound terms to lexicon
+        for term in compound_terms:
+            lex.add(term.lower().replace(' ', ''))
+            lex.add(term.lower().replace(' ', '-'))
+        
+        # Improved word tokenization - handle compound words and proper nouns
+        words = re.findall(r"[a-zA-Z][a-zA-Z0-9-]*[a-zA-Z0-9]|[a-zA-Z]{2,}", cv_text)
+        
+        for w in set(words):
             wl = w.lower()
-            if wl not in lex:
+            
+            # Skip if word is in lexicon
+            if wl in lex:
+                continue
+                
+            # Skip if it's a proper noun (starts with capital letter)
+            if w[0].isupper() and len(w) > 2:
+                continue
+                
+            # Skip if it's a compound word (contains multiple capital letters)
+            if len([c for c in w if c.isupper()]) > 1 and len(w) > 3:
+                continue
+                
+            # Skip if it's a common abbreviation or acronym
+            if w.isupper() and len(w) <= 5:
+                continue
+                
+            # Skip if it's a number or contains numbers
+            if any(c.isdigit() for c in w):
+                continue
+                
+            # Skip if it's a common technical compound term
+            if any(term in wl for term in ['engineer', 'developer', 'manager', 'analyst', 'specialist', 'consultant']):
+                continue
+                
+            # Skip if it's a common technical prefix/suffix
+            if any(wl.endswith(suffix) for suffix in ['ware', 'tech', 'soft', 'net', 'sys', 'app', 'web', 'mobile', 'cloud', 'data', 'ai', 'ml', 'api', 'sdk', 'cli', 'gui', 'ui', 'ux']):
+                continue
+                
+            # Skip if it's a common technical prefix
+            if any(wl.startswith(prefix) for prefix in ['micro', 'macro', 'multi', 'cross', 'inter', 'intra', 'trans', 'sub', 'super', 'hyper', 'ultra', 'mega', 'giga', 'tera', 'nano', 'pico', 'femto']):
+                continue
+                
+            # Skip if it contains common technical separators
+            if '-' in w or '_' in w:
+                continue
+                
+            # Only flag if it's a simple word not in lexicon
+            if len(w) >= 3 and w.isalpha():
                 # try simple suggestion by closest lowercase match (naive: same first 3 letters)
                 sugg = [x for x in lex if x.startswith(wl[:3])][:3]
-                spelling_suggestions.append({'word': w, 'suggestions': sugg})
+                if sugg:  # Only add if we have suggestions
+                    spelling_suggestions.append({'word': w, 'suggestions': sugg})
 
     # Readability
     readability = calc_readability(cv_text, readability_cfg)
