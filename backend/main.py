@@ -608,7 +608,9 @@ async def upload_resume(
         # Advanced ATS report (config-driven)
         try:
             ind_cfg = load_industry_keywords(ATS_BASE_DIR, industry)
-            advanced_report = advanced_ats_score(text, industry, ATS_LANG_CFG, ATS_PROF_CFG, ind_cfg)
+            logger.info(f"Starting advanced ATS scoring with LLM for industry: {industry}")
+            advanced_report = advanced_ats_score(text, industry, ATS_LANG_CFG, ATS_PROF_CFG, ind_cfg, model)
+            logger.info(f"Advanced ATS scoring completed successfully")
         except Exception as e:
             logger.error(f"Advanced ATS scoring failed: {e}")
             advanced_report = None

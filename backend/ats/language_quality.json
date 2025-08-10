@@ -18,7 +18,7 @@
     {"pattern": "!{2,}", "message": "Avoid multiple exclamation marks", "severity": "low"},
     {"pattern": "\\bETA\\b", "message": "Avoid internal acronyms unless necessary", "severity": "low"},
     {"pattern": "\\betc\\.\\b", "message": "Avoid 'etc.'; list specific examples", "severity": "low"},
-    {"pattern": "\\b\n?\\d{1,2}[/-]\\d{4}\\b", "message": "Use consistent date formats across entries", "severity": "low"},
+    {"pattern": "\\b\\d{1,2}[/-]\\d{4}\\b", "message": "Use consistent date formats across entries", "severity": "low"},
     {"pattern": "\\bvery\\b|\\breally\\b|\\bhighly\\b", "message": "Avoid intensifiers; use precise, quantified language", "severity": "low"},
     {"pattern": "\\butilize(d)?\\b", "message": "Prefer 'use/used' instead of 'utilize/utilized'", "severity": "low"},
     {"pattern": "\\bgot\\b", "message": "Use professional verbs (e.g., ‘achieved’, ‘obtained’)", "severity": "low"},

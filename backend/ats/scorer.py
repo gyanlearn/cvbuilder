@@ -1,83 +1,195 @@
 import re
-import math
-from typing import Any, Dict, List, Tuple
+import logging
+from typing import Dict, Any, List, Tuple
+import os
 
+# Set up logging
+logger = logging.getLogger(__name__)
 
 def normalize(text: str) -> str:
-    text = text.lower()
-    text = re.sub(r"[\t\r]", " ", text)
-    text = re.sub(r"[\u2013\u2014]", "-", text)
-    text = re.sub(r"[^a-z0-9%$+\-/.,()\s]", " ", text)
-    text = re.sub(r"\s+", " ", text)
-    return text.strip()
-
+    """Normalize text for analysis"""
+    return re.sub(r'\s+', ' ', text.lower().strip())
 
 def flatten_keywords(d: Dict[str, Any]) -> List[str]:
-    out: List[str] = []
+    """Flatten nested keyword structure"""
+    result = []
     def rec(x: Any):
-        if isinstance(x, dict):
+        if isinstance(x, str):
+            result.append(x)
+        elif isinstance(x, list):
+            for item in x:
+                rec(item)
+        elif isinstance(x, dict):
             for v in x.values():
                 rec(v)
-        elif isinstance(x, list):
-            for v in x:
-                rec(v)
-        elif isinstance(x, str):
-            out.append(x)
     rec(d)
-    # de-dupe normalized
-    seen = set()
-    final = []
-    for k in out:
-        n = re.sub(r"\s+", " ", k.strip().lower())
-        if n and n not in seen:
-            seen.add(n)
-            final.append(n)
-    return final
-
+    return result
 
 def count_matches(text: str, terms: List[str]) -> Tuple[List[str], List[str]]:
+    """Count keyword matches in text"""
+    norm = normalize(text)
     matched = []
     missing = []
-    for t in terms:
-        pattern = r"(^|\W)" + re.escape(t) + r"(\W|$)"
-        if re.search(pattern, text):
-            matched.append(t)
+    for term in terms:
+        if term.lower() in norm:
+            matched.append(term)
         else:
-            missing.append(t)
+            missing.append(term)
     return matched, missing
 
-
 def calc_readability(text: str, cfg: Dict[str, Any]) -> Dict[str, Any]:
-    words = re.findall(r"[a-zA-Z]+", text)
-    sents = re.split(r"[.!?]+\s+", text)
-    sents = [s for s in sents if s.strip()]
-    word_count = len(words)
-    sent_count = max(1, len(sents))
-    avg_sent_len = word_count / sent_count
-    complex_words = [w for w in words if len(w) >= cfg.get('complex_word_min_len', 7)]
-    complex_ratio = (len(complex_words) / max(1, word_count))
+    """Calculate readability metrics"""
+    sentences = re.split(r'[.!?]+', text)
+    words = re.findall(r'\b\w+\b', text)
+    complex_words = [w for w in words if len(w) >= cfg.get('complex_word_min_len', 8)]
+    
+    avg_sentence_length = len(words) / max(1, len(sentences))
+    complex_ratio = len(complex_words) / max(1, len(words))
+    
     warnings = []
-    if avg_sent_len > cfg.get('max_sentence_length', 24):
-        warnings.append('Average sentence length is high')
-    if complex_ratio > cfg.get('max_complex_ratio', 0.15):
-        warnings.append('Too many complex words')
+    if avg_sentence_length > cfg.get('max_sentence_length', 24):
+        warnings.append(f"Average sentence length ({avg_sentence_length:.1f}) exceeds recommended maximum")
+    if complex_ratio > cfg.get('max_complex_ratio', 0.16):
+        warnings.append(f"Complex word ratio ({complex_ratio:.2%}) exceeds recommended maximum")
+    
+    word_count = len(words)
+    if word_count < cfg.get('target_word_count_min', 200):
+        warnings.append(f"Word count ({word_count}) is below recommended minimum")
+    elif word_count > cfg.get('target_word_count_max', 1200):
+        warnings.append(f"Word count ({word_count}) exceeds recommended maximum")
+    
     return {
-        'word_count': word_count,
-        'sentence_count': sent_count,
-        'avg_sentence_length': round(avg_sent_len, 2),
-        'complex_word_ratio': round(complex_ratio, 3),
-        'warnings': warnings,
+        'avg_sentence_length': avg_sentence_length,
+        'complex_word_ratio': complex_ratio,
+        'total_words': word_count,
+        'warnings': warnings
     }
 
+def regex_findall(patterns: List[str], text: str) -> List[re.Match]:
+    """Find all regex matches in text"""
+    matches = []
+    for pattern in patterns:
+        try:
+            matches.extend(re.finditer(pattern, text, re.IGNORECASE))
+        except re.error as e:
+            logger.warning(f"Invalid regex pattern '{pattern}': {e}")
+    return matches
 
-def regex_findall(patterns: List[str], text: str) -> List[str]:
-    hits = []
-    for p in patterns:
-        hits += re.findall(p, text, flags=re.IGNORECASE)
-    return hits
+def llm_spell_check(cv_text: str, model) -> List[Dict[str, Any]]:
+    """
+    Use LLM for intelligent spelling and grammar checking
+    """
+    if not model:
+        logger.warning("LLM model not available, skipping spell check")
+        return []
+    
+    try:
+        # Create a focused prompt for spelling and grammar checking
+        prompt = f"""
+        You are an expert resume reviewer and spelling/grammar checker. 
+        
+        Analyze the following CV text and identify ONLY actual spelling mistakes and grammar errors.
+        Do NOT flag:
+        - Proper nouns (names, company names, product names)
+        - Technical terms, programming languages, frameworks
+        - Job titles, industry jargon
+        - Compound words or abbreviations
+        - Words that are correctly spelled but might seem unusual
+        
+        Focus ONLY on genuine spelling errors and grammar issues.
+        
+        CV Text:
+        {cv_text[:3000]}
+        
+        Return your analysis in this exact JSON format:
+        {{
+            "spelling_errors": [
+                {{
+                    "word": "misspelled_word",
+                    "correction": "correct_spelling",
+                    "context": "brief explanation"
+                }}
+            ],
+            "grammar_errors": [
+                {{
+                    "issue": "grammar_issue_description",
+                    "suggestion": "how_to_fix_it",
+                    "context": "brief explanation"
+                }}
+            ]
+        }}
+        
+        If no errors found, return empty arrays. Be conservative - only flag obvious mistakes.
+        """
+        
+        logger.info("Sending spelling/grammar check request to LLM")
+        logger.info(f"LLM Input Prompt: {prompt[:500]}...")
+        
+        response = model.generate_content(prompt)
+        llm_output = response.text
+        
+        logger.info(f"LLM Output: {llm_output[:500]}...")
+        
+        # Try to parse the JSON response
+        try:
+            import json
+            result = json.loads(llm_output)
+            
+            spelling_errors = result.get('spelling_errors', [])
+            grammar_errors = result.get('grammar_errors', [])
+            
+            logger.info(f"LLM detected {len(spelling_errors)} spelling errors and {len(grammar_errors)} grammar errors")
+            
+            # Convert to our standard format
+            issues = []
+            
+            for error in spelling_errors:
+                issues.append({
+                    'type': 'spelling',
+                    'word': error.get('word', ''),
+                    'suggestion': error.get('correction', ''),
+                    'message': f"Spelling error: {error.get('context', '')}"
+                })
+            
+            for error in grammar_errors:
+                issues.append({
+                    'type': 'grammar',
+                    'snippet': error.get('issue', ''),
+                    'suggestion': error.get('suggestion', ''),
+                    'message': f"Grammar issue: {error.get('context', '')}"
+                })
+            
+            return issues
+            
+        except json.JSONDecodeError as e:
+            logger.error(f"Failed to parse LLM JSON response: {e}")
+            logger.error(f"Raw LLM output: {llm_output}")
+            
+            # Fallback: try to extract information from text response
+            fallback_issues = []
+            if "spelling" in llm_output.lower() or "misspell" in llm_output.lower():
+                fallback_issues.append({
+                    'type': 'spelling',
+                    'word': 'LLM detected spelling issues',
+                    'suggestion': 'Review LLM feedback',
+                    'message': 'LLM analysis suggests spelling improvements'
+                })
+            
+            if "grammar" in llm_output.lower():
+                fallback_issues.append({
+                    'type': 'grammar',
+                    'snippet': 'LLM detected grammar issues',
+                    'suggestion': 'Review LLM feedback',
+                    'message': 'LLM analysis suggests grammar improvements'
+                })
+            
+            return fallback_issues
+            
+    except Exception as e:
+        logger.error(f"LLM spell check failed: {e}")
+        return []
 
-
-def ats_score(cv_text: str, industry: str, lang_cfg: Dict[str, Any], prof_cfg: Dict[str, Any], ind_cfg: Dict[str, Any]) -> Dict[str, Any]:
+def ats_score(cv_text: str, industry: str, lang_cfg: Dict[str, Any], prof_cfg: Dict[str, Any], ind_cfg: Dict[str, Any], model=None) -> Dict[str, Any]:
     norm = normalize(cv_text)
 
     # Keywords
@@ -129,131 +241,32 @@ def ats_score(cv_text: str, industry: str, lang_cfg: Dict[str, Any], prof_cfg: D
                 'examples': examples
             })
 
-    # Spelling (improved: handle compound words, proper nouns, and common terms)
+    # LLM-based Spelling and Grammar Check
+    logger.info("Starting LLM-based spelling and grammar check")
+    llm_issues = llm_spell_check(cv_text, model)
+    
+    # Separate spelling and grammar issues from LLM
     spelling_suggestions = []
-    if spelling_dicts:
-        lex = set()
-        for d in spelling_dicts:
-            for w in d:
-                lex.add(w.lower())
-        
-        # Add common compound terms and proper nouns
-        common_terms = {
-            'fastest', 'software', 'engineer', 'heading', 'omni', 'channel', 'omni-channel',
-            'frontend', 'backend', 'fullstack', 'full-stack', 'web', 'mobile', 'desktop',
-            'database', 'api', 'rest', 'graphql', 'microservice', 'microservices',
-            'devops', 'ci', 'cd', 'pipeline', 'deployment', 'infrastructure',
-            'cloud', 'aws', 'azure', 'gcp', 'heroku', 'vercel', 'netlify',
-            'javascript', 'typescript', 'python', 'java', 'csharp', 'c++', 'go', 'rust',
-            'react', 'vue', 'angular', 'node', 'express', 'django', 'flask', 'fastapi',
-            'postgresql', 'mysql', 'mongodb', 'redis', 'elasticsearch', 'kafka',
-            'docker', 'kubernetes', 'terraform', 'ansible', 'jenkins', 'github', 'gitlab',
-            'agile', 'scrum', 'kanban', 'waterfall', 'lean', 'sixsigma', 'togaf',
-            'ux', 'ui', 'design', 'research', 'prototype', 'wireframe', 'mockup',
-            'analytics', 'metrics', 'dashboard', 'reporting', 'visualization',
-            'machine', 'learning', 'artificial', 'intelligence', 'neural', 'network',
-            'blockchain', 'cryptocurrency', 'nft', 'defi', 'web3', 'metaverse'
-        }
-        
-        # Add common terms to lexicon
-        for term in common_terms:
-            lex.add(term.lower())
-        
-        # Add common basic vocabulary to eliminate false positives
-        basic_vocab = {
-            'for', 'the', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'from', 'with', 'by',
-            'of', 'a', 'an', 'is', 'are', 'was', 'were', 'be', 'been', 'being', 'have', 'has',
-            'had', 'do', 'does', 'did', 'will', 'would', 'could', 'should', 'may', 'might',
-            'can', 'must', 'shall', 'this', 'that', 'these', 'those', 'here', 'there',
-            'when', 'where', 'why', 'how', 'what', 'which', 'who', 'whom', 'whose',
-            'if', 'then', 'else', 'while', 'until', 'since', 'during', 'before', 'after',
-            'above', 'below', 'under', 'over', 'between', 'among', 'through', 'across',
-            'into', 'onto', 'upon', 'within', 'without', 'against', 'toward', 'towards',
-            'about', 'around', 'across', 'along', 'beside', 'beyond', 'inside', 'outside',
-            'project', 'integration', 'development', 'implementation', 'deployment',
-            'management', 'administration', 'coordination', 'collaboration', 'communication',
-            'documentation', 'specification', 'configuration', 'optimization', 'automation',
-            'monitoring', 'testing', 'debugging', 'maintenance', 'support', 'training',
-            'research', 'analysis', 'design', 'planning', 'execution', 'delivery',
-            'evaluation', 'assessment', 'review', 'audit', 'compliance', 'security',
-            'performance', 'scalability', 'reliability', 'availability', 'usability',
-            'best', 'good', 'great', 'excellent', 'outstanding', 'superior', 'quality',
-            'efficient', 'effective', 'successful', 'innovative', 'creative', 'strategic',
-            'technical', 'professional', 'experienced', 'skilled', 'knowledgeable',
-            'responsible', 'accountable', 'dedicated', 'motivated', 'results-oriented'
-        }
-        
-        # Add basic vocabulary to lexicon
-        for word in basic_vocab:
-            lex.add(word.lower())
-        
-        # Add common compound terms that might appear in CVs
-        compound_terms = {
-            'software engineer', 'software developer', 'frontend developer', 'backend developer',
-            'full stack developer', 'fullstack developer', 'web developer', 'mobile developer',
-            'data engineer', 'data scientist', 'machine learning engineer', 'ml engineer',
-            'devops engineer', 'site reliability engineer', 'sre', 'qa engineer',
-            'test engineer', 'quality assurance engineer', 'ui designer', 'ux designer',
-            'product manager', 'project manager', 'program manager', 'technical lead',
-            'team lead', 'engineering manager', 'senior engineer', 'principal engineer',
-            'staff engineer', 'senior developer', 'lead developer', 'architect',
-            'solution architect', 'enterprise architect', 'cloud architect', 'security engineer',
-            'network engineer', 'systems engineer', 'infrastructure engineer'
-        }
-        
-        # Add compound terms to lexicon
-        for term in compound_terms:
-            lex.add(term.lower().replace(' ', ''))
-            lex.add(term.lower().replace(' ', '-'))
-        
-        # Improved word tokenization - handle compound words and proper nouns
-        words = re.findall(r"[a-zA-Z][a-zA-Z0-9-]*[a-zA-Z0-9]|[a-zA-Z]{2,}", cv_text)
-        
-        for w in set(words):
-            wl = w.lower()
-            
-            # Skip if word is in lexicon
-            if wl in lex:
-                continue
-                
-            # Skip if it's a proper noun (starts with capital letter)
-            if w[0].isupper() and len(w) > 2:
-                continue
-                
-            # Skip if it's a compound word (contains multiple capital letters)
-            if len([c for c in w if c.isupper()]) > 1 and len(w) > 3:
-                continue
-                
-            # Skip if it's a common abbreviation or acronym
-            if w.isupper() and len(w) <= 5:
-                continue
-                
-            # Skip if it's a number or contains numbers
-            if any(c.isdigit() for c in w):
-                continue
-                
-            # Skip if it's a common technical compound term
-            if any(term in wl for term in ['engineer', 'developer', 'manager', 'analyst', 'specialist', 'consultant']):
-                continue
-                
-            # Skip if it's a common technical prefix/suffix
-            if any(wl.endswith(suffix) for suffix in ['ware', 'tech', 'soft', 'net', 'sys', 'app', 'web', 'mobile', 'cloud', 'data', 'ai', 'ml', 'api', 'sdk', 'cli', 'gui', 'ui', 'ux']):
-                continue
-                
-            # Skip if it's a common technical prefix
-            if any(wl.startswith(prefix) for prefix in ['micro', 'macro', 'multi', 'cross', 'inter', 'intra', 'trans', 'sub', 'super', 'hyper', 'ultra', 'mega', 'giga', 'tera', 'nano', 'pico', 'femto']):
-                continue
-                
-            # Skip if it contains common technical separators
-            if '-' in w or '_' in w:
-                continue
-                
-            # Only flag if it's a simple word not in lexicon
-            if len(w) >= 3 and w.isalpha():
-                # try simple suggestion by closest lowercase match (naive: same first 3 letters)
-                sugg = [x for x in lex if x.startswith(wl[:3])][:3]
-                if sugg:  # Only add if we have suggestions
-                    spelling_suggestions.append({'word': w, 'suggestions': sugg})
+    llm_grammar_issues = []
+    
+    for issue in llm_issues:
+        if issue['type'] == 'spelling':
+            spelling_suggestions.append({
+                'word': issue['word'],
+                'suggestions': [issue['suggestion']] if issue['suggestion'] else []
+            })
+        elif issue['type'] == 'grammar':
+            llm_grammar_issues.append({
+                'message': issue['message'],
+                'severity': 'medium',
+                'count': 1,
+                'examples': [issue['snippet']] if issue['snippet'] else []
+            })
+    
+    # Merge grammar issues from rules and LLM
+    all_grammar_issues = grammar_issues + llm_grammar_issues
+    
+    logger.info(f"LLM spell check completed: {len(spelling_suggestions)} spelling issues, {len(llm_grammar_issues)} grammar issues")
 
     # Readability
     readability = calc_readability(cv_text, readability_cfg)
@@ -283,7 +296,7 @@ def ats_score(cv_text: str, industry: str, lang_cfg: Dict[str, Any], prof_cfg: D
     add('quantification', min(sum(len(v) for v in quant_found.values()), 10))
     # Penalize grammar issues and weak language
     add('readability', max(0, 10 - len(readability.get('warnings', []))))
-    penalty = min(10, len(grammar_issues)) + min(5, len(weak_hits))
+    penalty = min(10, len(all_grammar_issues)) + min(5, len(weak_hits))
     score = max(0, score - penalty)
     add('buzzwords', min(len(buzz_found), 5))
 
@@ -303,7 +316,7 @@ def ats_score(cv_text: str, industry: str, lang_cfg: Dict[str, Any], prof_cfg: D
         },
         'action_verbs_found': action_found,
         'quantification_found': quant_found,
-        'grammar_issues': grammar_issues,
+        'grammar_issues': all_grammar_issues,
         'spelling_suggestions': spelling_suggestions,
         'readability_report': readability,
         'weak_language_found': weak_hits,
@@ -312,7 +325,7 @@ def ats_score(cv_text: str, industry: str, lang_cfg: Dict[str, Any], prof_cfg: D
 
     # Actionable issues aggregation
     issues = []
-    for g in grammar_issues:
+    for g in all_grammar_issues:
         issues.append({
             'type': 'grammar',
             'snippet': (g.get('examples') or [''])[0],
