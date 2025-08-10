@@ -2,6 +2,8 @@ from fastapi import FastAPI, File, UploadFile, HTTPException, Request, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
+from fastapi.exceptions import RequestValidationError
+from starlette.exceptions import HTTPException as StarletteHTTPException
 import os
 import tempfile
 import json
@@ -36,6 +38,12 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# Add startup logging
+logger.info("Starting CV Parser & ATS Scorer API...")
+logger.info(f"Environment: {'production' if os.getenv('RENDER') else 'development'}")
+logger.info(f"Python version: {os.sys.version}")
+logger.info(f"Working directory: {os.getcwd()}")
+
 # Load environment variables
 load_dotenv()
 
@@ -54,6 +62,29 @@ try:
 except Exception:
     ATS_LANG_CFG, ATS_PROF_CFG = {}, {}
 
+# Global exception handlers to ensure CORS headers are added
+@app.exception_handler(StarletteHTTPException)
+async def http_exception_handler(request: Request, exc: StarletteHTTPException):
+    return add_cors_headers(JSONResponse(
+        status_code=exc.status_code,
+        content={"detail": exc.detail}
+    ))
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    return add_cors_headers(JSONResponse(
+        status_code=422,
+        content={"detail": "Validation error", "errors": exc.errors()}
+    ))
+
+@app.exception_handler(Exception)
+async def general_exception_handler(request: Request, exc: Exception):
+    logger.error(f"Unhandled exception: {exc}")
+    return add_cors_headers(JSONResponse(
+        status_code=500,
+        content={"detail": "Internal server error"}
+    ))
+
 # Security middleware
 app.add_middleware(
     TrustedHostMiddleware, 
@@ -69,9 +100,19 @@ app.add_middleware(
         "https://localhost:3000"
     ],
     allow_credentials=False,  # Set to False for security
-    allow_methods=["GET", "POST"],
+    allow_methods=["GET", "POST", "OPTIONS"],  # Added OPTIONS for preflight
     allow_headers=["*"],
+    expose_headers=["*"],  # Expose all headers
+    max_age=86400,  # Cache preflight for 24 hours
 )
+
+# Helper function to add CORS headers
+def add_cors_headers(response):
+    """Add CORS headers to response"""
+    response.headers["Access-Control-Allow-Origin"] = "https://cv-parser-frontend-qgx0.onrender.com"
+    response.headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
+    response.headers["Access-Control-Allow-Headers"] = "*"
+    return response
 
 # Request logging middleware
 @app.middleware("http")
@@ -80,7 +121,8 @@ async def log_requests(request: Request, call_next):
     response = await call_next(request)
     process_time = time.time() - start_time
     logger.info(f"{request.method} {request.url.path} - {response.status_code} - {process_time:.3f}s")
-    return response
+    # Add CORS headers to all responses
+    return add_cors_headers(response)
 
 # Initialize Supabase with error handling
 try:
@@ -533,6 +575,19 @@ def calculate_ats_score(resume_data: ResumeData, original_text: str) -> ATSResul
         recommendations=recommendations
     )
 
+@app.options("/upload-resume")
+async def upload_resume_options():
+    """Handle CORS preflight request for upload endpoint"""
+    return JSONResponse(
+        content={"message": "CORS preflight"},
+        headers={
+            "Access-Control-Allow-Origin": "https://cv-parser-frontend-qgx0.onrender.com",
+            "Access-Control-Allow-Methods": "POST, OPTIONS",
+            "Access-Control-Allow-Headers": "*",
+            "Access-Control-Max-Age": "86400"
+        }
+    )
+
 @app.post("/upload-resume")
 async def upload_resume(
     file: UploadFile = File(...),
@@ -664,6 +719,10 @@ async def upload_resume(
             "recommendations": ats_result.recommendations,
             "advanced_report": advanced_report,
             "processing_time": processing_time
+        }, headers={
+            "Access-Control-Allow-Origin": "https://cv-parser-frontend-qgx0.onrender.com",
+            "Access-Control-Allow-Methods": "POST, OPTIONS",
+            "Access-Control-Allow-Headers": "*"
         })
         
     except HTTPException:
@@ -680,6 +739,18 @@ async def upload_resume(
             except Exception as e:
                 logger.error(f"Failed to cleanup temp file: {e}")
 
+@app.get("/test-cors")
+async def test_cors():
+    """Test endpoint to verify CORS is working"""
+    return JSONResponse(
+        content={"message": "CORS test successful", "timestamp": datetime.utcnow().isoformat()},
+        headers={
+            "Access-Control-Allow-Origin": "https://cv-parser-frontend-qgx0.onrender.com",
+            "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+            "Access-Control-Allow-Headers": "*"
+        }
+    )
+
 @app.get("/")
 async def root():
     """Health check endpoint"""
@@ -693,18 +764,37 @@ async def root():
 @app.get("/health")
 async def health_check():
     """Detailed health check for production monitoring"""
+    import platform
+    import psutil
+    
     health_status = {
         "status": "healthy",
         "timestamp": datetime.utcnow().isoformat(),
+        "environment": "production" if os.getenv('RENDER') else "development",
+        "system": {
+            "python_version": platform.python_version(),
+            "platform": platform.platform(),
+            "memory_usage": f"{psutil.virtual_memory().percent}%",
+            "cpu_usage": f"{psutil.cpu_percent()}%"
+        },
         "services": {
             "supabase": "connected" if supabase else "disconnected",
             "gemini_ai": "connected" if model else "disconnected"
+        },
+        "cors": {
+            "allowed_origins": ["https://cv-parser-frontend-qgx0.onrender.com"],
+            "middleware_active": True
         }
     }
     
     # Check if any critical services are down
     if not supabase or not model:
         health_status["status"] = "degraded"
+    
+    # Check system resources
+    if psutil.virtual_memory().percent > 90:
+        health_status["status"] = "degraded"
+        health_status["warnings"] = ["High memory usage"]
     
     return health_status
 

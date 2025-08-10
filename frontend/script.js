@@ -132,6 +132,9 @@ async function uploadFile(file) {
                     case 500:
                         errorMessage = 'Server error. Please try again later.';
                         break;
+                    case 502:
+                        errorMessage = 'Bad Gateway - Backend service may be down. Please try again later.';
+                        break;
                     case 503:
                         errorMessage = 'Service temporarily unavailable. Please try again.';
                         break;
@@ -166,6 +169,34 @@ async function uploadFile(file) {
         hideProgress();
     }
 }
+
+// Connection test function
+async function testConnection() {
+    try {
+        console.log('Testing backend connection...');
+        const response = await fetch(`${API_BASE_URL}/test-cors`, {
+            method: 'GET',
+            mode: 'cors'
+        });
+        
+        if (response.ok) {
+            const data = await response.json();
+            console.log('✅ Backend connection successful:', data);
+            return true;
+        } else {
+            console.error('❌ Backend connection failed:', response.status, response.statusText);
+            return false;
+        }
+    } catch (error) {
+        console.error('❌ Backend connection error:', error);
+        return false;
+    }
+}
+
+// Test connection on page load
+document.addEventListener('DOMContentLoaded', function() {
+    testConnection();
+});
 
 // Progress Handling
 function showProgress() {
