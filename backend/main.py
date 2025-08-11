@@ -118,7 +118,7 @@ app.add_middleware(
 def add_cors_headers(response):
     """Add CORS headers to response"""
     response.headers["Access-Control-Allow-Origin"] = "https://cv-parser-frontend-qgx0.onrender.com"
-    response.headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
+    response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
     response.headers["Access-Control-Allow-Headers"] = "*"
     return response
 
@@ -129,8 +129,8 @@ async def log_requests(request: Request, call_next):
     response = await call_next(request)
     process_time = time.time() - start_time
     logger.info(f"{request.method} {request.url.path} - {response.status_code} - {process_time:.3f}s")
-    # Add CORS headers to all responses
-    return add_cors_headers(response)
+    # Let FastAPI CORS middleware handle CORS headers
+    return response
 
 # Initialize Supabase with error handling
 try:
@@ -850,6 +850,19 @@ async def improve_cv(request: CVImprovementRequest):
         if cv_improver:
             cv_improver.cleanup()
 
+@app.options("/test-cors")
+async def test_cors_options():
+    """Handle CORS preflight request for test endpoint"""
+    return JSONResponse(
+        content={"message": "CORS preflight"},
+        headers={
+            "Access-Control-Allow-Origin": "https://cv-parser-frontend-qgx0.onrender.com",
+            "Access-Control-Allow-Methods": "GET, OPTIONS",
+            "Access-Control-Allow-Headers": "*",
+            "Access-Control-Max-Age": "86400"
+        }
+    )
+
 @app.get("/test-cors")
 async def test_cors():
     """Test endpoint to verify CORS is working"""
@@ -862,6 +875,19 @@ async def test_cors():
         }
     )
 
+@app.options("/")
+async def root_options():
+    """Handle CORS preflight request for root endpoint"""
+    return JSONResponse(
+        content={"message": "CORS preflight"},
+        headers={
+            "Access-Control-Allow-Origin": "https://cv-parser-frontend-qgx0.onrender.com",
+            "Access-Control-Allow-Methods": "GET, OPTIONS",
+            "Access-Control-Allow-Headers": "*",
+            "Access-Control-Max-Age": "86400"
+        }
+    )
+
 @app.get("/")
 async def root():
     """Health check endpoint"""
@@ -871,6 +897,19 @@ async def root():
         "version": "1.0.0",
         "timestamp": datetime.utcnow().isoformat()
     }
+
+@app.options("/health")
+async def health_options():
+    """Handle CORS preflight request for health endpoint"""
+    return JSONResponse(
+        content={"message": "CORS preflight"},
+        headers={
+            "Access-Control-Allow-Origin": "https://cv-parser-frontend-qgx0.onrender.com",
+            "Access-Control-Allow-Methods": "GET, OPTIONS",
+            "Access-Control-Allow-Headers": "*",
+            "Access-Control-Max-Age": "86400"
+        }
+    )
 
 @app.get("/health")
 async def health_check():

@@ -179,33 +179,117 @@ async function uploadFile(file) {
     }
 }
 
-// Connection test function
-async function testConnection() {
-    try {
-        console.log('Testing backend connection...');
-        const response = await fetch(`${API_BASE_URL}/test-cors`, {
-            method: 'GET',
-            mode: 'cors'
-        });
-        
-        if (response.ok) {
-            const data = await response.json();
-            console.log('✅ Backend connection successful:', data);
-            return true;
-        } else {
-            console.error('❌ Backend connection failed:', response.status, response.statusText);
-            return false;
+// Connection test function with retry
+async function testConnection(retries = 2) {
+    for (let attempt = 1; attempt <= retries; attempt++) {
+        try {
+            console.log(`Testing backend connection (attempt ${attempt}/${retries})...`);
+            const response = await fetch(`${API_BASE_URL}/test-cors`, {
+                method: 'GET',
+                mode: 'cors',
+                signal: AbortSignal.timeout(10000) // 10 second timeout
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                console.log('✅ Backend connection successful:', data);
+                return true;
+            } else {
+                console.error(`❌ Backend connection failed (attempt ${attempt}):`, response.status, response.statusText);
+                if (attempt === retries) return false;
+            }
+        } catch (error) {
+            if (error.name === 'AbortError') {
+                console.error(`❌ Backend connection timeout (attempt ${attempt}) - service may be down`);
+            } else if (error.message.includes('Failed to fetch')) {
+                console.error(`❌ Backend connection failed (attempt ${attempt}) - CORS or network issue`);
+            } else {
+                console.error(`❌ Backend connection error (attempt ${attempt}):`, error);
+            }
+            
+            if (attempt === retries) return false;
+            
+            // Wait before retry (exponential backoff)
+            await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
         }
-    } catch (error) {
-        console.error('❌ Backend connection error:', error);
-        return false;
     }
+    return false;
 }
 
 // Test connection on page load
 document.addEventListener('DOMContentLoaded', function() {
-    testConnection();
+    testConnection().then(success => {
+        if (!success) {
+            // Show a user-friendly message if backend is down
+            setTimeout(() => {
+                showConnectionError();
+            }, 1000);
+        }
+    });
 });
+
+// Show connection error with retry option
+function showConnectionError() {
+    const errorDiv = document.createElement('div');
+    errorDiv.className = 'fixed top-4 right-4 bg-red-500 text-white px-6 py-4 rounded-lg shadow-lg z-50 max-w-md';
+    
+    errorDiv.innerHTML = `
+        <div class="flex items-start">
+            <div class="flex-shrink-0">
+                <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
+                </svg>
+            </div>
+            <div class="ml-3 flex-1">
+                <p class="text-sm font-medium">Backend service is currently unavailable.</p>
+                <p class="text-xs text-red-100 mt-1">This may be due to maintenance or network issues.</p>
+                <button onclick="retryConnection()" class="mt-2 px-3 py-1 bg-white text-red-500 text-xs rounded hover:bg-gray-100 transition-colors">
+                    Retry Connection
+                </button>
+            </div>
+            <div class="ml-3 flex-shrink-0">
+                <button onclick="this.closest('.fixed').remove()" class="text-white hover:text-gray-200">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(errorDiv);
+    
+    // Remove after 15 seconds
+    setTimeout(() => {
+        if (errorDiv.parentNode) {
+            errorDiv.remove();
+        }
+    }, 15000);
+}
+
+// Retry connection function
+async function retryConnection() {
+    const retryBtn = document.querySelector('button[onclick="retryConnection()"]');
+    if (retryBtn) {
+        retryBtn.textContent = 'Testing...';
+        retryBtn.disabled = true;
+    }
+    
+    const success = await testConnection();
+    
+    if (success) {
+        showSuccess('Backend connection restored!');
+        // Remove any connection error messages
+        document.querySelectorAll('.fixed.bg-red-500').forEach(el => el.remove());
+    } else {
+        showError('Backend is still unavailable. Please try again later.');
+    }
+    
+    if (retryBtn) {
+        retryBtn.textContent = 'Retry Connection';
+        retryBtn.disabled = false;
+    }
+}
 
 // Progress Handling
 function showProgress() {
