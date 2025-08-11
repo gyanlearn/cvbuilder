@@ -7,7 +7,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 import os
 import tempfile
 import json
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Any
 import re
 from datetime import datetime
 import fitz  # PyMuPDF
@@ -31,6 +31,13 @@ from backend.ats.config_loader import (
 )
 from backend.ats.scorer import ats_score as advanced_ats_score
 from backend.ats.cv_improver import CVImprover
+
+# Pydantic models for CV improvement
+class CVImprovementRequest(BaseModel):
+    original_cv_text: str
+    ats_feedback: Dict[str, Any]
+    industry: str
+    original_score: int
 
 # Configure logging for production
 logging.basicConfig(
@@ -713,7 +720,10 @@ async def upload_resume(
         
         return JSONResponse(content={
             "success": True,
-            "parsed_data": resume_data.dict(),
+            "parsed_data": {
+                **resume_data.dict(),
+                "original_text": text  # Include original CV text for improvement
+            },
             "ats_score": ats_result.total_score,
             "score_breakdown": ats_result.breakdown,
             "issues": ats_result.issues,
@@ -754,59 +764,30 @@ async def improve_cv_options():
     )
 
 @app.post("/improve-cv")
-async def improve_cv(
-    file: UploadFile = File(...),
-    industry: str = Query(default="technology", description="Target industry for ATS scoring")
-):
+async def improve_cv(request: CVImprovementRequest):
     """
     Improve CV based on ATS feedback using Gemini Flash 2.0 and generate improved PDF
     """
     if not model:
         raise HTTPException(status_code=503, detail="AI model not available")
     
-    # Validate file type
-    allowed_types = ['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'text/plain']
-    if file.content_type not in allowed_types:
-        raise HTTPException(status_code=400, detail="Invalid file type. Only PDF, DOCX, and TXT files are allowed.")
-    
-    # Validate file size (10MB limit)
-    content = await file.read()
-    if len(content) > 10 * 1024 * 1024:
-        raise HTTPException(status_code=400, detail="File size must be less than 10MB")
-    
-    # Save uploaded file temporarily and process
-    temp_file_path = None
     cv_improver = None
     
     try:
-        with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(file.filename)[1]) as temp_file:
-            temp_file.write(content)
-            temp_file_path = temp_file.name
-
-        # Extract text based on file type
-        if file.content_type == 'application/pdf':
-            text = extract_text_from_pdf(temp_file_path)
-        elif file.content_type == 'application/vnd.openxmlformats-officedocument.wordprocessingml.document':
-            text = extract_text_from_docx(temp_file_path)
-        else:  # text/plain
-            text = extract_text_from_txt(temp_file_path)
+        # Get ATS feedback and original CV text from request
+        ats_feedback = request.ats_feedback
+        original_cv_text = request.original_cv_text
+        industry = request.industry
+        original_score = request.original_score
         
-        # Get ATS feedback first
-        try:
-            ind_cfg = load_industry_keywords(ATS_BASE_DIR, industry)
-            ats_feedback = advanced_ats_score(text, industry, ATS_LANG_CFG, ATS_PROF_CFG, ind_cfg, model)
-            original_score = ats_feedback.get('ats_score', 0)
-            logger.info(f"ATS analysis completed. Score: {original_score}")
-        except Exception as e:
-            logger.error(f"ATS analysis failed: {e}")
-            raise HTTPException(status_code=500, detail="Failed to analyze CV for ATS scoring")
+        logger.info(f"Starting CV improvement for industry: {industry}, score: {original_score}")
         
         # Initialize CV improver
         cv_improver = CVImprover(model)
         
         # Improve CV
         improvement_result = cv_improver.improve_cv(
-            original_cv_text=text,
+            original_cv_text=original_cv_text,
             ats_feedback=ats_feedback,
             industry=industry,
             original_score=original_score
@@ -866,13 +847,6 @@ async def improve_cv(
         logger.error(f"Unexpected error improving CV: {e}")
         raise HTTPException(status_code=500, detail="Internal server error occurred while improving the CV")
     finally:
-        # Clean up temporary files
-        if temp_file_path and os.path.exists(temp_file_path):
-            try:
-                os.unlink(temp_file_path)
-            except Exception as e:
-                logger.error(f"Failed to cleanup temp file: {e}")
-        
         if cv_improver:
             cv_improver.cleanup()
 

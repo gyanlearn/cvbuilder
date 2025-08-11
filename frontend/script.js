@@ -78,19 +78,23 @@ function handleFileSelect(e) {
 
 // File Handling
 function handleFile(file) {
+    // Store original file for CV improvement
+    window.originalFile = file;
+    
     // Validate file type
     const allowedTypes = ['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'text/plain'];
     if (!allowedTypes.includes(file.type)) {
-        showError('Please select a valid file type (PDF, DOCX, or TXT)');
+        showError('Please upload a PDF, DOCX, or TXT file.');
         return;
     }
-
+    
     // Validate file size (10MB limit)
     if (file.size > 10 * 1024 * 1024) {
-        showError('File size must be less than 10MB');
+        showError('File size must be less than 10MB.');
         return;
     }
-
+    
+    // Upload file
     uploadFile(file);
 }
 
@@ -149,6 +153,11 @@ async function uploadFile(file) {
         const result = await response.json();
         
         if (result.success) {
+            // Store the original CV text for improvement
+            if (result.parsed_data && result.parsed_data.original_text) {
+                window.originalCVText = result.parsed_data.original_text;
+            }
+            
             showSuccess('Resume processed successfully!');
             displayResults(result);
         } else {
@@ -228,6 +237,9 @@ function updateProgress(percentage) {
 
 // Results Display
 function displayResults(result) {
+    // Store current results for CV improvement
+    window.currentResults = result;
+    
     // Update score
     const score = result.ats_score;
     scoreValue.textContent = score;
@@ -513,6 +525,85 @@ function showSuccess(message) {
 function handleOptimizeClick() {
     // This would typically redirect to an AI optimization service
     alert('AI Resume Optimization feature coming soon! This would integrate with advanced AI services to provide specific improvement suggestions.');
+}
+
+// Start CV improvement process
+async function startCVImprovement() {
+    const industry = document.getElementById('improvement-industry').value;
+    
+    // Use existing ATS feedback and CV text
+    if (!window.currentResults || !window.currentResults.advanced_report) {
+        showError('No ATS analysis results found. Please analyze a resume first.');
+        return;
+    }
+    
+    try {
+        // Show progress
+        showImprovementProgress();
+        
+        // Get the original CV text from the stored results
+        const originalCVText = window.originalCVText || 'CV content from analysis';
+        
+        if (!originalCVText || originalCVText === 'CV content from analysis') {
+            showError('Original CV text not found. Please re-upload your resume.');
+            return;
+        }
+        
+        // Create the request payload
+        const requestData = {
+            original_cv_text: originalCVText,
+            ats_feedback: window.currentResults.advanced_report,
+            industry: industry,
+            original_score: window.currentResults.advanced_report.ats_score
+        };
+        
+        // Call the improvement endpoint
+        const response = await fetch(`${API_BASE_URL}/improve-cv`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(requestData),
+            mode: 'cors'
+        });
+        
+        if (!response.ok) {
+            let errorMessage = 'CV improvement failed';
+            try {
+                const errorData = await response.json();
+                errorMessage = errorData.detail || errorMessage;
+            } catch (e) {
+                switch (response.status) {
+                    case 400:
+                        errorMessage = 'Invalid request data.';
+                        break;
+                    case 500:
+                        errorMessage = 'Server error during CV improvement.';
+                        break;
+                    case 503:
+                        errorMessage = 'AI service temporarily unavailable.';
+                        break;
+                    default:
+                        errorMessage = `CV improvement failed (Error ${response.status})`;
+                }
+            }
+            throw new Error(errorMessage);
+        }
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            showImprovementResults(result);
+        } else {
+            throw new Error('CV improvement processing failed');
+        }
+        
+    } catch (error) {
+        console.error('CV improvement error:', error);
+        showError(error.message || 'Failed to improve CV. Please try again.');
+    } finally {
+        hideImprovementProgress();
+    }
 }
 
 // Initialize
