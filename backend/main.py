@@ -796,28 +796,79 @@ async def improve_cv(request: CVImprovementRequest):
         if not improvement_result.get('success'):
             raise HTTPException(status_code=500, detail=improvement_result.get('error', 'CV improvement failed'))
         
+        # Check if PDF was generated
+        if not improvement_result.get('pdf_path'):
+            logger.error("CV improvement succeeded but no PDF path returned")
+            raise HTTPException(status_code=500, detail="PDF generation failed during CV improvement")
+        
+        # Verify PDF file exists and has content
+        pdf_path = improvement_result['pdf_path']
+        if not os.path.exists(pdf_path):
+            logger.error(f"PDF file not found at path: {pdf_path}")
+            raise HTTPException(status_code=500, detail="Generated PDF file not found")
+        
+        file_size = os.path.getsize(pdf_path)
+        if file_size == 0:
+            logger.error(f"PDF file is empty: {pdf_path}")
+            raise HTTPException(status_code=500, detail="Generated PDF file is empty")
+        
+        logger.info(f"PDF generated successfully: {pdf_path} (size: {file_size} bytes)")
+        
         # Upload improved PDF to Supabase Storage
         improved_pdf_url = None
+        pdf_data_base64 = None
+        
         if supabase:
             try:
                 bucket_name = os.getenv("SUPABASE_BUCKET", "resumes")
                 pdf_filename = os.path.basename(improvement_result['pdf_path'])
                 storage_key = f"improved/{datetime.utcnow().strftime('%Y/%m/%d')}/{pdf_filename}"
                 
+                logger.info(f"Uploading PDF to Supabase: bucket={bucket_name}, key={storage_key}")
+                
                 with open(improvement_result['pdf_path'], "rb") as fbin:
                     pdf_bytes = fbin.read()
                 
-                supabase.storage.from_(bucket_name).upload(
+                logger.info(f"PDF file read successfully: {len(pdf_bytes)} bytes")
+                
+                # Upload to Supabase
+                upload_result = supabase.storage.from_(bucket_name).upload(
                     path=storage_key,
                     file=pdf_bytes,
                     file_options={"content-type": "application/pdf"}
                 )
                 
+                logger.info(f"Supabase upload result: {upload_result}")
+                
+                # Get public URL
                 improved_pdf_url = supabase.storage.from_(bucket_name).get_public_url(storage_key)
                 logger.info(f"Uploaded improved PDF to Supabase: {storage_key}")
+                logger.info(f"Public URL: {improved_pdf_url}")
                 
             except Exception as e:
                 logger.error(f"Failed to upload improved PDF to Supabase: {e}")
+                logger.error(f"Supabase error details: {type(e).__name__}: {str(e)}")
+                import traceback
+                logger.error(f"Supabase traceback: {traceback.format_exc()}")
+                # Fallback: provide PDF data directly
+                try:
+                    with open(improvement_result['pdf_path'], "rb") as fbin:
+                        pdf_bytes = fbin.read()
+                    import base64
+                    pdf_data_base64 = base64.b64encode(pdf_bytes).decode('utf-8')
+                    logger.info(f"Fallback: PDF data encoded as base64 ({len(pdf_data_base64)} characters)")
+                except Exception as fallback_error:
+                    logger.error(f"Fallback PDF encoding also failed: {fallback_error}")
+        else:
+            logger.warning("Supabase not configured, providing PDF data directly")
+            try:
+                with open(improvement_result['pdf_path'], "rb") as fbin:
+                    pdf_bytes = fbin.read()
+                import base64
+                pdf_data_base64 = base64.b64encode(pdf_bytes).decode('utf-8')
+                logger.info(f"Direct PDF encoding: {len(pdf_data_base64)} characters")
+            except Exception as direct_error:
+                logger.error(f"Direct PDF encoding failed: {direct_error}")
         
         return JSONResponse(content={
             "success": True,
@@ -826,6 +877,7 @@ async def improve_cv(request: CVImprovementRequest):
             "improvement_strategy": improvement_result['improvement_strategy'],
             "improved_cv_text": improvement_result['improved_cv_text'],
             "pdf_download_url": improved_pdf_url,
+            "pdf_data_base64": pdf_data_base64,  # Fallback for direct download
             "changes_made": improvement_result['changes_made'],
             "ats_feedback_summary": {
                 "issues_count": len(ats_feedback.get('issues', [])),

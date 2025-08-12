@@ -162,6 +162,9 @@ Improved CV:"""
             pdf_filename = f"improved_cv_{strategy}_{timestamp}.pdf"
             pdf_path = os.path.join(self.temp_dir, pdf_filename)
             
+            logger.info(f"Starting PDF generation for strategy: {strategy}")
+            logger.info(f"PDF will be saved to: {pdf_path}")
+            
             # Create PDF document
             doc = fitz.open()
             
@@ -184,11 +187,25 @@ Improved CV:"""
             doc.save(pdf_path)
             doc.close()
             
-            logger.info(f"PDF generated successfully: {pdf_path}")
-            return pdf_path
+            # Verify PDF was created and has content
+            if os.path.exists(pdf_path):
+                file_size = os.path.getsize(pdf_path)
+                logger.info(f"PDF generated successfully: {pdf_path} (size: {file_size} bytes)")
+                
+                if file_size > 0:
+                    return pdf_path
+                else:
+                    logger.error("PDF file was created but is empty")
+                    return None
+            else:
+                logger.error("PDF file was not created")
+                return None
             
         except Exception as e:
             logger.error(f"Error generating PDF: {e}")
+            logger.error(f"Error details: {type(e).__name__}: {str(e)}")
+            import traceback
+            logger.error(f"Traceback: {traceback.format_exc()}")
             return None
     
     def _add_text_to_page(self, page, text: str, preserve_style: bool = True):
