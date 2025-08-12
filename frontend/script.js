@@ -184,10 +184,14 @@ async function testConnection(retries = 2) {
     for (let attempt = 1; attempt <= retries; attempt++) {
         try {
             console.log(`Testing backend connection (attempt ${attempt}/${retries})...`);
+            
+            // Use longer timeout for production (Render.com can be slow to start)
+            const timeout = window.location.hostname.includes('render.com') ? 30000 : 10000;
+            
             const response = await fetch(`${API_BASE_URL}/test-cors`, {
                 method: 'GET',
                 mode: 'cors',
-                signal: AbortSignal.timeout(10000) // 10 second timeout
+                signal: AbortSignal.timeout(timeout) // 30 seconds for production, 10 for local
             });
             
             if (response.ok) {
@@ -199,8 +203,11 @@ async function testConnection(retries = 2) {
                 if (attempt === retries) return false;
             }
         } catch (error) {
-            if (error.name === 'AbortError') {
-                console.error(`❌ Backend connection timeout (attempt ${attempt}) - service may be down`);
+            if (error.name === 'AbortError' || error.name === 'TimeoutError') {
+                console.error(`❌ Backend connection timeout (attempt ${attempt}) - service may be starting up or down`);
+                if (window.location.hostname.includes('render.com')) {
+                    console.log('💡 Render.com services can take 30+ seconds to start up');
+                }
             } else if (error.message.includes('Failed to fetch')) {
                 console.error(`❌ Backend connection failed (attempt ${attempt}) - CORS or network issue`);
             } else {
@@ -210,7 +217,7 @@ async function testConnection(retries = 2) {
             if (attempt === retries) return false;
             
             // Wait before retry (exponential backoff)
-            await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+            await new Promise(resolve => setTimeout(resolve, 2000 * attempt));
         }
     }
     return false;
@@ -218,7 +225,14 @@ async function testConnection(retries = 2) {
 
 // Test connection on page load
 document.addEventListener('DOMContentLoaded', function() {
+    console.log('CV Parser & ATS Scorer initialized');
+    
+    // Add status indicator to the page
+    addStatusIndicator();
+    
+    // Test connection on page load
     testConnection().then(success => {
+        updateStatusIndicator(success);
         if (!success) {
             // Show a user-friendly message if backend is down
             setTimeout(() => {
@@ -226,10 +240,17 @@ document.addEventListener('DOMContentLoaded', function() {
             }, 1000);
         }
     });
+    
+    // Set up periodic health checks (every 2 minutes)
+    setInterval(async () => {
+        const success = await testConnection(1); // Single attempt for health checks
+        updateStatusIndicator(success);
+    }, 120000);
 });
 
 // Show connection error with retry option
 function showConnectionError() {
+    const isProduction = window.location.hostname.includes('render.com');
     const errorDiv = document.createElement('div');
     errorDiv.className = 'fixed top-4 right-4 bg-red-500 text-white px-6 py-4 rounded-lg shadow-lg z-50 max-w-md';
     
@@ -242,10 +263,19 @@ function showConnectionError() {
             </div>
             <div class="ml-3 flex-1">
                 <p class="text-sm font-medium">Backend service is currently unavailable.</p>
-                <p class="text-xs text-red-100 mt-1">This may be due to maintenance or network issues.</p>
-                <button onclick="retryConnection()" class="mt-2 px-3 py-1 bg-white text-red-500 text-xs rounded hover:bg-gray-100 transition-colors">
-                    Retry Connection
-                </button>
+                ${isProduction ? 
+                    '<p class="text-xs text-red-100 mt-1">Render.com services can take 30+ seconds to start up after inactivity.</p>' : 
+                    '<p class="text-xs text-red-100 mt-1">This may be due to maintenance or network issues.</p>'
+                }
+                <div class="mt-2 space-y-2">
+                    <button onclick="retryConnection()" class="w-full px-3 py-1 bg-white text-red-500 text-xs rounded hover:bg-gray-100 transition-colors">
+                        Retry Connection
+                    </button>
+                    ${isProduction ? 
+                        '<button onclick="showRenderInfo()" class="w-full px-3 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600 transition-colors">Learn More</button>' : 
+                        ''
+                    }
+                </div>
             </div>
             <div class="ml-3 flex-shrink-0">
                 <button onclick="this.closest('.fixed').remove()" class="text-white hover:text-gray-200">
@@ -259,12 +289,53 @@ function showConnectionError() {
     
     document.body.appendChild(errorDiv);
     
-    // Remove after 15 seconds
+    // Remove after 20 seconds (longer for production)
     setTimeout(() => {
         if (errorDiv.parentNode) {
             errorDiv.remove();
         }
-    }, 15000);
+    }, isProduction ? 20000 : 15000);
+}
+
+// Show Render.com specific information
+function showRenderInfo() {
+    const infoDiv = document.createElement('div');
+    infoDiv.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
+    
+    infoDiv.innerHTML = `
+        <div class="bg-white rounded-lg p-6 max-w-md mx-4">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-semibold text-gray-900">About Render.com Services</h3>
+                <button onclick="this.closest('.fixed').remove()" class="text-gray-400 hover:text-gray-600">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+            
+            <div class="space-y-3 text-sm text-gray-600">
+                <p>• <strong>Free tier services</strong> automatically sleep after 15 minutes of inactivity</p>
+                <p>• <strong>Cold starts</strong> can take 30+ seconds to wake up</p>
+                <p>• <strong>First request</strong> after sleep will be slower</p>
+                <p>• <strong>Subsequent requests</strong> will be much faster</p>
+            </div>
+            
+            <div class="mt-4 p-3 bg-blue-50 rounded-lg">
+                <p class="text-xs text-blue-800">
+                    <strong>Tip:</strong> If you're experiencing delays, wait a moment and try again. 
+                    The service should respond faster on subsequent attempts.
+                </p>
+            </div>
+            
+            <div class="mt-4 flex justify-end">
+                <button onclick="this.closest('.fixed').remove()" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                    Got it
+                </button>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(infoDiv);
 }
 
 // Retry connection function
@@ -693,4 +764,87 @@ async function startCVImprovement() {
 // Initialize
 document.addEventListener('DOMContentLoaded', function() {
     console.log('CV Parser & ATS Scorer initialized');
+    
+    // Add status indicator to the page
+    addStatusIndicator();
+    
+    // Test connection on page load
+    testConnection().then(success => {
+        updateStatusIndicator(success);
+        if (!success) {
+            // Show a user-friendly message if backend is down
+            setTimeout(() => {
+                showConnectionError();
+            }, 1000);
+        }
+    });
+    
+    // Set up periodic health checks (every 2 minutes)
+    setInterval(async () => {
+        const success = await testConnection(1); // Single attempt for health checks
+        updateStatusIndicator(success);
+    }, 120000);
 });
+
+// Add status indicator to the page
+function addStatusIndicator() {
+    const header = document.querySelector('header');
+    if (header) {
+        const statusDiv = document.createElement('div');
+        statusDiv.id = 'backend-status';
+        statusDiv.className = 'flex items-center text-sm';
+        statusDiv.innerHTML = `
+            <div class="flex items-center">
+                <div class="w-2 h-2 rounded-full bg-gray-400 mr-2" id="status-dot"></div>
+                <span class="text-gray-500" id="status-text">Checking...</span>
+                <button onclick="manualStatusCheck()" class="ml-2 text-gray-400 hover:text-gray-600" title="Check backend status">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                    </svg>
+                </button>
+            </div>
+        `;
+        
+        // Insert after the title
+        const title = header.querySelector('h1');
+        if (title && title.parentNode) {
+            title.parentNode.insertBefore(statusDiv, title.nextSibling);
+        }
+    }
+}
+
+// Manual status check
+async function manualStatusCheck() {
+    const statusText = document.getElementById('status-text');
+    if (statusText) {
+        statusText.textContent = 'Checking...';
+        statusText.className = 'text-gray-500';
+    }
+    
+    const success = await testConnection(1);
+    updateStatusIndicator(success);
+    
+    if (success) {
+        showSuccess('Backend is online and responding!');
+    } else {
+        showConnectionError();
+    }
+}
+
+// Update status indicator
+function updateStatusIndicator(isOnline) {
+    const statusDot = document.getElementById('status-dot');
+    const statusText = document.getElementById('status-text');
+    
+    if (statusDot && statusText) {
+        if (isOnline) {
+            statusDot.className = 'w-2 h-2 rounded-full bg-green-500 mr-2';
+            statusText.textContent = 'Backend Online';
+            statusText.className = 'text-green-600';
+        } else {
+            statusDot.className = 'w-2 h-2 rounded-full bg-red-500 mr-2';
+            statusText.textContent = 'Backend Offline';
+            statusText.className = 'text-red-600';
+        }
+    }
+}
