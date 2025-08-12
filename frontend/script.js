@@ -179,20 +179,89 @@ async function uploadFile(file) {
     }
 }
 
-// Connection test function with retry
+// Test CORS specifically
+async function testCORS() {
+    try {
+        console.log('🔍 Testing CORS configuration...');
+        
+        // Try a simple OPTIONS request first
+        const optionsResponse = await fetch(`${API_BASE_URL}/test-cors`, {
+            method: 'OPTIONS',
+            mode: 'cors',
+            signal: AbortSignal.timeout(10000)
+        });
+        
+        console.log('OPTIONS response status:', optionsResponse.status);
+        console.log('OPTIONS response headers:', Object.fromEntries(optionsResponse.headers.entries()));
+        
+        return optionsResponse.ok;
+    } catch (error) {
+        console.error('❌ CORS test failed:', error);
+        return false;
+    }
+}
+
+// Simple ping test to check if backend is reachable
+async function pingBackend() {
+    try {
+        console.log('🔍 Pinging backend to check basic connectivity...');
+        
+        // Try to fetch the root endpoint first
+        const response = await fetch(`${API_BASE_URL}/`, {
+            method: 'GET',
+            mode: 'cors',
+            signal: AbortSignal.timeout(15000) // 15 second timeout for ping
+        });
+        
+        if (response.ok) {
+            console.log('✅ Backend root endpoint is reachable');
+            return true;
+        } else {
+            console.log(`⚠️ Backend root endpoint responded with status: ${response.status}`);
+            return false;
+        }
+    } catch (error) {
+        console.error('❌ Backend ping failed:', error);
+        return false;
+    }
+}
+
+// Enhanced connection test with ping
 async function testConnection(retries = 2) {
+    // First, try a simple ping
+    const isReachable = await pingBackend();
+    if (!isReachable) {
+        console.error('❌ Backend is not reachable at all - possible network or service issue');
+        return false;
+    }
+    
+    // Test CORS configuration
+    const corsOk = await testCORS();
+    if (!corsOk) {
+        console.error('❌ CORS configuration issue detected');
+        return false;
+    }
+    
     for (let attempt = 1; attempt <= retries; attempt++) {
         try {
             console.log(`Testing backend connection (attempt ${attempt}/${retries})...`);
+            console.log(`Target URL: ${API_BASE_URL}/test-cors`);
             
             // Use longer timeout for production (Render.com can be slow to start)
             const timeout = window.location.hostname.includes('render.com') ? 30000 : 10000;
+            console.log(`Using timeout: ${timeout}ms`);
             
+            const startTime = Date.now();
             const response = await fetch(`${API_BASE_URL}/test-cors`, {
                 method: 'GET',
                 mode: 'cors',
                 signal: AbortSignal.timeout(timeout) // 30 seconds for production, 10 for local
             });
+            const endTime = Date.now();
+            
+            console.log(`Response received in ${endTime - startTime}ms`);
+            console.log(`Response status: ${response.status} ${response.statusText}`);
+            console.log(`Response headers:`, Object.fromEntries(response.headers.entries()));
             
             if (response.ok) {
                 const data = await response.json();
@@ -203,6 +272,11 @@ async function testConnection(retries = 2) {
                 if (attempt === retries) return false;
             }
         } catch (error) {
+            console.error(`❌ Connection attempt ${attempt} failed with error:`, error);
+            console.error(`Error name: ${error.name}`);
+            console.error(`Error message: ${error.message}`);
+            console.error(`Error stack:`, error.stack);
+            
             if (error.name === 'AbortError' || error.name === 'TimeoutError') {
                 console.error(`❌ Backend connection timeout (attempt ${attempt}) - service may be starting up or down`);
                 if (window.location.hostname.includes('render.com')) {
@@ -784,6 +858,13 @@ document.addEventListener('DOMContentLoaded', function() {
         const success = await testConnection(1); // Single attempt for health checks
         updateStatusIndicator(success);
     }, 120000);
+    
+    // Add console commands for debugging
+    window.debugBackend = runDiagnostics;
+    window.testBackendConnection = testConnection;
+    console.log('🔧 Debug commands available:');
+    console.log('  - debugBackend() - Run full diagnostics');
+    console.log('  - testBackendConnection() - Test connection');
 });
 
 // Add status indicator to the page
@@ -800,6 +881,11 @@ function addStatusIndicator() {
                 <button onclick="manualStatusCheck()" class="ml-2 text-gray-400 hover:text-gray-600" title="Check backend status">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                    </svg>
+                </button>
+                <button onclick="runDiagnostics()" class="ml-2 text-blue-400 hover:text-blue-600" title="Run detailed diagnostics">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
                     </svg>
                 </button>
             </div>
@@ -847,4 +933,150 @@ function updateStatusIndicator(isOnline) {
             statusText.className = 'text-red-600';
         }
     }
+}
+
+// Manual diagnostic function
+async function runDiagnostics() {
+    console.log('🔍 Running backend diagnostics...');
+    
+    const results = {
+        timestamp: new Date().toISOString(),
+        frontend: {
+            url: window.location.href,
+            userAgent: navigator.userAgent,
+            apiBaseUrl: API_BASE_URL
+        },
+        tests: {}
+    };
+    
+    // Test 1: Basic connectivity
+    console.log('\n=== Test 1: Basic Connectivity ===');
+    results.tests.connectivity = await pingBackend();
+    
+    // Test 2: CORS configuration
+    console.log('\n=== Test 2: CORS Configuration ===');
+    results.tests.cors = await testCORS();
+    
+    // Test 3: Specific endpoint
+    console.log('\n=== Test 3: Test-CORS Endpoint ===');
+    try {
+        const response = await fetch(`${API_BASE_URL}/test-cors`, {
+            method: 'GET',
+            mode: 'cors',
+            signal: AbortSignal.timeout(15000)
+        });
+        results.tests.testCorsEndpoint = {
+            status: response.status,
+            ok: response.ok,
+            headers: Object.fromEntries(response.headers.entries())
+        };
+        console.log('Test-CORS endpoint response:', results.tests.testCorsEndpoint);
+    } catch (error) {
+        results.tests.testCorsEndpoint = {
+            error: error.name,
+            message: error.message
+        };
+        console.error('Test-CORS endpoint failed:', error);
+    }
+    
+    // Test 4: Health endpoint
+    console.log('\n=== Test 4: Health Endpoint ===');
+    try {
+        const healthResponse = await fetch(`${API_BASE_URL}/health`, {
+            method: 'GET',
+            mode: 'cors',
+            signal: AbortSignal.timeout(15000)
+        });
+        results.tests.healthEndpoint = {
+            status: healthResponse.status,
+            ok: healthResponse.ok
+        };
+        if (healthResponse.ok) {
+            const healthData = await healthResponse.json();
+            results.tests.healthEndpoint.data = healthData;
+            console.log('Health endpoint data:', healthData);
+        }
+    } catch (error) {
+        results.tests.healthEndpoint = {
+            error: error.name,
+            message: error.message
+        };
+        console.error('Health endpoint failed:', error);
+    }
+    
+    console.log('\n=== Diagnostic Results ===');
+    console.log(JSON.stringify(results, null, 2));
+    
+    // Show results to user
+    showDiagnosticResults(results);
+    
+    return results;
+}
+
+// Show diagnostic results
+function showDiagnosticResults(results) {
+    const modal = document.createElement('div');
+    modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
+    
+    modal.innerHTML = `
+        <div class="bg-white rounded-lg p-6 max-w-4xl mx-4 max-h-[90vh] overflow-y-auto">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-xl font-semibold text-gray-900">Backend Diagnostics</h3>
+                <button onclick="this.closest('.fixed').remove()" class="text-gray-400 hover:text-gray-600">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+            
+            <div class="space-y-4">
+                <div>
+                    <h4 class="font-medium text-gray-900 mb-2">Test Results</h4>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="p-3 rounded-lg ${results.tests.connectivity ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'}">
+                            <div class="font-medium">Connectivity</div>
+                            <div class="text-sm">${results.tests.connectivity ? '✅ OK' : '❌ Failed'}</div>
+                        </div>
+                        <div class="p-3 rounded-lg ${results.tests.cors ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'}">
+                            <div class="font-medium">CORS</div>
+                            <div class="text-sm">${results.tests.cors ? '✅ OK' : '❌ Failed'}</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div>
+                    <h4 class="font-medium text-gray-900 mb-2">Endpoint Tests</h4>
+                    <div class="space-y-2">
+                        <div class="p-3 bg-gray-50 rounded-lg">
+                            <div class="font-medium text-sm">Test-CORS Endpoint</div>
+                            <div class="text-xs text-gray-600">
+                                Status: ${results.tests.testCorsEndpoint.status || 'N/A'}<br>
+                                ${results.tests.testCorsEndpoint.error ? `Error: ${results.tests.testCorsEndpoint.error}` : 'Response OK'}
+                            </div>
+                        </div>
+                        <div class="p-3 bg-gray-50 rounded-lg">
+                            <div class="font-medium text-sm">Health Endpoint</div>
+                            <div class="text-xs text-gray-600">
+                                Status: ${results.tests.healthEndpoint.status || 'N/A'}<br>
+                                ${results.tests.healthEndpoint.error ? `Error: ${results.tests.healthEndpoint.error}` : 'Response OK'}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div>
+                    <h4 class="font-medium text-gray-900 mb-2">Raw Results</h4>
+                    <pre class="bg-gray-100 p-3 rounded text-xs overflow-x-auto">${JSON.stringify(results, null, 2)}</pre>
+                </div>
+            </div>
+            
+            <div class="mt-6 flex justify-end">
+                <button onclick="this.closest('.fixed').remove()" class="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700">
+                    Close
+                </button>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
 }
