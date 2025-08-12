@@ -259,9 +259,22 @@
             <div class="bg-gradient-to-r from-primary to-blue-600 rounded-lg p-6 text-white text-center">
                 <h3 class="text-xl font-bold mb-2">Ready to optimize your resume?</h3>
                 <p class="text-blue-100 mb-4">Get AI-powered suggestions to improve your ATS score</p>
-                <button id="optimize-btn" class="bg-white text-primary px-6 py-3 rounded-lg font-semibold hover:bg-gray-50 transition-colors">
-                    Fix My Resume with AI
-                </button>
+                <!-- Optimize Button -->
+                <div class="text-center">
+                    <button id="optimize-btn" class="bg-white text-primary px-6 py-3 rounded-lg font-semibold hover:bg-gray-50 transition-colors">
+                        Fix my resume with AI
+                    </button>
+                    
+                    <!-- Test button for debugging -->
+                    <button onclick="testOptimizeClick()" class="ml-4 bg-purple-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-purple-700 transition-colors">
+                        🧪 Test AI Improvement
+                    </button>
+                    
+                    <!-- Data check button -->
+                    <button onclick="checkData()" class="ml-4 bg-yellow-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-yellow-700 transition-colors">
+                        📊 Check Data
+                    </button>
+                </div>
             </div>
         </div>
     </main>

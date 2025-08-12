@@ -304,6 +304,9 @@ document.addEventListener('DOMContentLoaded', function() {
     // Add status indicator to the page
     addStatusIndicator();
     
+    // Add test button for debugging
+    addTestButton();
+    
     // Test connection on page load
     testConnection().then(success => {
         updateStatusIndicator(success);
@@ -320,6 +323,13 @@ document.addEventListener('DOMContentLoaded', function() {
         const success = await testConnection(1); // Single attempt for health checks
         updateStatusIndicator(success);
     }, 120000);
+    
+    // Add console commands for debugging
+    window.debugBackend = runDiagnostics;
+    window.testBackendConnection = testConnection;
+    console.log('🔧 Debug commands available:');
+    console.log('  - debugBackend() - Run full diagnostics');
+    console.log('  - testBackendConnection() - Test connection');
 });
 
 // Show connection error with retry option
@@ -554,7 +564,7 @@ function updateAdvanced(report) {
     advIssuesList.innerHTML = (report.issues || []).slice(0, 12).map(i => `
         <div class="p-3 border rounded-lg bg-gray-50">
             <div class="text-sm text-gray-900"><strong>${i.type ?? 'issue'}:</strong> ${i.message || ''}</div>
-            ${i.snippet ? `<div class="text-xs text-gray-600 mt-1">“${i.snippet.replaceAll('<','&lt;').replaceAll('>','&gt;')}”</div>` : ''}
+            ${i.snippet ? `<div class="text-xs text-gray-600 mt-1">"${i.snippet.replaceAll('<','&lt;').replaceAll('>','&gt;')}”</div>` : ''}
             ${i.suggestion ? `<div class="text-xs text-blue-700 mt-1">Suggestion: ${i.suggestion}</div>` : ''}
         </div>
     `).join('');
@@ -787,13 +797,129 @@ function showSuccess(message) {
 
 // Optimize Button Handler
 function handleOptimizeClick() {
-    // This would typically redirect to an AI optimization service
-    alert('AI Resume Optimization feature coming soon! This would integrate with advanced AI services to provide specific improvement suggestions.');
+    alert('Button clicked! Starting CV improvement...'); // Immediate feedback
+    
+    console.log('🔍 Optimize button clicked');
+    console.log('Current results:', window.currentResults);
+    console.log('Advanced report:', window.currentResults?.advanced_report);
+    console.log('Original CV text:', window.originalCVText);
+    
+    // Check if we have ATS analysis results
+    if (!window.currentResults || !window.currentResults.advanced_report) {
+        alert('No ATS analysis results found. Please analyze a resume first.');
+        return;
+    }
+    
+    // Show the CV improvement interface
+    showCVImprovementInterface();
+}
+
+// Show CV improvement interface
+function showCVImprovementInterface() {
+    const modal = document.createElement('div');
+    modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
+    
+    // Get current industry from the main form
+    const currentIndustry = document.getElementById('industry-select')?.value || 'technology';
+    
+    modal.innerHTML = `
+        <div class="bg-white rounded-lg p-6 max-w-md mx-4">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-xl font-semibold text-gray-900">AI CV Improvement</h3>
+                <button onclick="this.closest('.fixed').remove()" class="text-gray-400 hover:text-gray-600">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+            
+            <div class="space-y-4">
+                <div>
+                    <label for="improvement-industry" class="block text-sm font-medium text-gray-700 mb-2">
+                        Target Industry
+                    </label>
+                    <select id="improvement-industry" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        <option value="technology" ${currentIndustry === 'technology' ? 'selected' : ''}>Technology</option>
+                        <option value="product" ${currentIndustry === 'product' ? 'selected' : ''}>Product Management</option>
+                        <option value="engineering" ${currentIndustry === 'engineering' ? 'selected' : ''}>Engineering</option>
+                        <option value="marketing" ${currentIndustry === 'marketing' ? 'selected' : ''}>Marketing</option>
+                        <option value="sales" ${currentIndustry === 'sales' ? 'selected' : ''}>Sales</option>
+                        <option value="finance" ${currentIndustry === 'finance' ? 'selected' : ''}>Finance</option>
+                        <option value="healthcare" ${currentIndustry === 'healthcare' ? 'selected' : ''}>Healthcare</option>
+                        <option value="education" ${currentIndustry === 'education' ? 'selected' : ''}>Education</option>
+                        <option value="consulting" ${currentIndustry === 'consulting' ? 'selected' : ''}>Consulting</option>
+                        <option value="other" ${currentIndustry === 'other' ? 'selected' : ''}>Other</option>
+                    </select>
+                </div>
+                
+                <div class="bg-blue-50 p-3 rounded-lg">
+                    <div class="flex">
+                        <div class="flex-shrink-0">
+                            <svg class="h-5 w-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                        </div>
+                        <div class="ml-3">
+                            <p class="text-sm text-blue-700">
+                                Your CV will be analyzed and improved using AI based on ATS feedback. 
+                                The process will generate an optimized PDF version of your resume.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="bg-gray-50 p-3 rounded-lg">
+                    <h4 class="text-sm font-medium text-gray-900 mb-2">Current ATS Score: ${window.currentResults.advanced_report.ats_score || 'N/A'}</h4>
+                    <div class="text-xs text-gray-600">
+                        ${generateIssuesSummary(window.currentResults.advanced_report)}
+                    </div>
+                </div>
+            </div>
+            
+            <div class="mt-6 flex justify-end space-x-3">
+                <button onclick="this.closest('.fixed').remove()" class="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700">
+                    Cancel
+                </button>
+                <button onclick="startCVImprovement(); this.closest('.fixed').remove();" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                    Start AI Improvement
+                </button>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+}
+
+// Generate issues summary for display
+function generateIssuesSummary(advancedReport) {
+    const issues = advancedReport.issues || [];
+    const missingKeywords = advancedReport.keyword_matches?.missing || [];
+    
+    let summary = [];
+    
+    if (issues.length > 0) {
+        const grammarIssues = issues.filter(i => i.type === 'grammar').length;
+        const spellingIssues = issues.filter(i => i.type === 'spelling').length;
+        
+        if (grammarIssues > 0) summary.push(`${grammarIssues} grammar issues`);
+        if (spellingIssues > 0) summary.push(`${spellingIssues} spelling issues`);
+    }
+    
+    if (missingKeywords.length > 0) {
+        summary.push(`${missingKeywords.length} missing keywords`);
+    }
+    
+    if (summary.length === 0) {
+        summary.push('Minor formatting improvements');
+    }
+    
+    return summary.join(', ');
 }
 
 // Start CV improvement process
 async function startCVImprovement() {
     const industry = document.getElementById('improvement-industry').value;
+    console.log('🚀 Starting CV improvement for industry:', industry);
     
     // Use existing ATS feedback and CV text
     if (!window.currentResults || !window.currentResults.advanced_report) {
@@ -807,6 +933,8 @@ async function startCVImprovement() {
         
         // Get the original CV text from the stored results
         const originalCVText = window.originalCVText || 'CV content from analysis';
+        console.log('📝 Original CV text length:', originalCVText?.length);
+        console.log('📊 ATS feedback:', window.currentResults.advanced_report);
         
         if (!originalCVText || originalCVText === 'CV content from analysis') {
             showError('Original CV text not found. Please re-upload your resume.');
@@ -821,6 +949,8 @@ async function startCVImprovement() {
             original_score: window.currentResults.advanced_report.ats_score
         };
         
+        console.log('📤 Sending request data:', requestData);
+        
         // Call the improvement endpoint
         const response = await fetch(`${API_BASE_URL}/improve-cv`, {
             method: 'POST',
@@ -831,12 +961,17 @@ async function startCVImprovement() {
             mode: 'cors'
         });
         
+        console.log('📥 Response status:', response.status);
+        console.log('📥 Response headers:', Object.fromEntries(response.headers.entries()));
+        
         if (!response.ok) {
             let errorMessage = 'CV improvement failed';
             try {
                 const errorData = await response.json();
                 errorMessage = errorData.detail || errorMessage;
+                console.error('❌ Error response:', errorData);
             } catch (e) {
+                console.error('❌ Could not parse error response:', e);
                 switch (response.status) {
                     case 400:
                         errorMessage = 'Invalid request data.';
@@ -855,6 +990,7 @@ async function startCVImprovement() {
         }
         
         const result = await response.json();
+        console.log('✅ Improvement result:', result);
         
         if (result.success) {
             showImprovementResults(result);
@@ -863,7 +999,7 @@ async function startCVImprovement() {
         }
         
     } catch (error) {
-        console.error('CV improvement error:', error);
+        console.error('❌ CV improvement error:', error);
         showError(error.message || 'Failed to improve CV. Please try again.');
     } finally {
         hideImprovementProgress();
@@ -1120,48 +1256,33 @@ function showImprovementResults(result) {
 
 // Show improvement progress
 function showImprovementProgress() {
-    // This function is not defined in the original file, but is called in startCVImprovement.
-    // Assuming it will be implemented later or is a placeholder.
-    console.log('Show improvement progress placeholder');
+    const modal = document.createElement('div');
+    modal.id = 'improvement-progress-modal';
+    modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
+    
+    modal.innerHTML = `
+        <div class="bg-white rounded-lg p-6 max-w-md mx-4 text-center">
+            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+            <h3 class="text-lg font-semibold text-gray-900 mb-2">Improving Your CV...</h3>
+            <p class="text-sm text-gray-600 mb-4">AI is analyzing and optimizing your resume based on ATS feedback</p>
+            <div class="space-y-2 text-xs text-gray-500">
+                <div>✓ Analyzing ATS feedback</div>
+                <div>✓ Generating improved content</div>
+                <div>✓ Creating optimized PDF</div>
+                <div>⏳ Finalizing improvements...</div>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
 }
 
 function hideImprovementProgress() {
-    // This function is not defined in the original file, but is called in startCVImprovement.
-    // Assuming it will be implemented later or is a placeholder.
-    console.log('Hide improvement progress placeholder');
+    const progressModal = document.getElementById('improvement-progress-modal');
+    if (progressModal) {
+        progressModal.remove();
+    }
 }
-
-// Initialize
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('CV Parser & ATS Scorer initialized');
-    
-    // Add status indicator to the page
-    addStatusIndicator();
-    
-    // Test connection on page load
-    testConnection().then(success => {
-        updateStatusIndicator(success);
-        if (!success) {
-            // Show a user-friendly message if backend is down
-            setTimeout(() => {
-                showConnectionError();
-            }, 1000);
-        }
-    });
-    
-    // Set up periodic health checks (every 2 minutes)
-    setInterval(async () => {
-        const success = await testConnection(1); // Single attempt for health checks
-        updateStatusIndicator(success);
-    }, 120000);
-    
-    // Add console commands for debugging
-    window.debugBackend = runDiagnostics;
-    window.testBackendConnection = testConnection;
-    console.log('🔧 Debug commands available:');
-    console.log('  - debugBackend() - Run full diagnostics');
-    console.log('  - testBackendConnection() - Test connection');
-});
 
 // Add status indicator to the page
 function addStatusIndicator() {
@@ -1375,4 +1496,124 @@ function showDiagnosticResults(results) {
     `;
     
     document.body.appendChild(modal);
+}
+
+// Add test button for debugging
+function addTestButton() {
+    const header = document.querySelector('header');
+    if (header) {
+        const testDiv = document.createElement('div');
+        testDiv.className = 'ml-4';
+        testDiv.innerHTML = `
+            <button onclick="testCVImprovement()" class="px-3 py-1 bg-purple-600 text-white text-xs rounded hover:bg-purple-700">
+                Test CV Improvement
+            </button>
+        `;
+        
+        // Insert after the status indicator
+        const statusIndicator = document.getElementById('backend-status');
+        if (statusIndicator && statusIndicator.parentNode) {
+            statusIndicator.parentNode.insertBefore(testDiv, statusIndicator.nextSibling);
+        }
+    }
+}
+
+// Test CV improvement function
+function testCVImprovement() {
+    console.log('🧪 Testing CV improvement...');
+    console.log('Current results:', window.currentResults);
+    console.log('Advanced report:', window.currentResults?.advanced_report);
+    console.log('Original CV text:', window.originalCVText);
+    
+    if (!window.currentResults || !window.currentResults.advanced_report) {
+        alert('No ATS analysis results found. Please analyze a resume first.');
+        return;
+    }
+    
+    if (!window.originalCVText) {
+        alert('No original CV text found. Please re-upload your resume.');
+        return;
+    }
+    
+    // Show the CV improvement interface
+    showCVImprovementInterface();
+}
+
+// Initialize event listeners
+function initializeEventListeners() {
+    console.log('🔧 Initializing event listeners...');
+    
+    // Check if elements exist
+    console.log('Drop zone:', dropZone);
+    console.log('File input:', fileInput);
+    console.log('Optimize button:', optimizeBtn);
+    
+    if (optimizeBtn) {
+        console.log('✅ Optimize button found, attaching click handler');
+        optimizeBtn.addEventListener('click', handleOptimizeClick);
+        console.log('✅ Click handler attached to optimize button');
+    } else {
+        console.error('❌ Optimize button not found!');
+    }
+    
+    if (dropZone) {
+        dropZone.addEventListener('click', () => fileInput.click());
+        dropZone.addEventListener('dragover', handleDragOver);
+        dropZone.addEventListener('drop', handleDrop);
+        dropZone.addEventListener('dragenter', handleDragEnter);
+        dropZone.addEventListener('dragleave', handleDragLeave);
+    }
+    
+    if (fileInput) {
+        fileInput.addEventListener('change', handleFileSelect);
+    }
+}
+
+// Initialize
+initializeEventListeners();
+
+// Test function availability
+console.log('🧪 Testing function availability...');
+console.log('handleOptimizeClick function:', typeof handleOptimizeClick);
+console.log('showCVImprovementInterface function:', typeof showCVImprovementInterface);
+
+// Make functions globally available for testing
+window.testOptimizeClick = handleOptimizeClick;
+window.testShowInterface = showCVImprovementInterface;
+window.checkData = checkData;
+
+console.log('🔧 Test functions available:');
+console.log('  - testOptimizeClick() - Test the optimize button handler');
+console.log('  - testShowInterface() - Test showing the improvement interface');
+console.log('  - checkData() - Check available data for CV improvement');
+
+// Check data function for debugging
+function checkData() {
+    console.log('📊 Checking available data...');
+    
+    const data = {
+        currentResults: window.currentResults,
+        advancedReport: window.currentResults?.advanced_report,
+        originalCVText: window.originalCVText,
+        originalCVTextLength: window.originalCVText?.length,
+        hasAtsScore: !!window.currentResults?.advanced_report?.ats_score,
+        atsScore: window.currentResults?.advanced_report?.ats_score,
+        issuesCount: window.currentResults?.advanced_report?.issues?.length || 0,
+        missingKeywords: window.currentResults?.advanced_report?.keyword_matches?.missing?.length || 0
+    };
+    
+    console.log('📊 Data summary:', data);
+    
+    // Show data in alert for quick check
+    let message = 'Data Check Results:\n\n';
+    message += `Current Results: ${data.currentResults ? '✅ Available' : '❌ Missing'}\n`;
+    message += `Advanced Report: ${data.advancedReport ? '✅ Available' : '❌ Missing'}\n`;
+    message += `Original CV Text: ${data.originalCVText ? `✅ Available (${data.originalCVTextLength} chars)` : '❌ Missing'}\n`;
+    message += `ATS Score: ${data.hasAtsScore ? `✅ ${data.atsScore}` : '❌ Missing'}\n`;
+    message += `Issues Count: ${data.issuesCount}\n`;
+    message += `Missing Keywords: ${data.missingKeywords}\n`;
+    
+    alert(message);
+    
+    return data;
 }
