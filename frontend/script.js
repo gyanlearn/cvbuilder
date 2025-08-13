@@ -856,191 +856,178 @@ function showSuccess(message) {
 
 // Show CV improvement interface
 function showCVImprovementInterface() {
-    const modal = document.createElement('div');
-    modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
+    console.log('🔧 Showing CV improvement interface...');
     
-    // Get current industry from the main form
-    const currentIndustry = document.getElementById('industry-select')?.value || 'technology';
+    // Load available templates
+    loadCVTemplates();
     
-    modal.innerHTML = `
-        <div class="bg-white rounded-lg p-6 max-w-md mx-4">
-            <div class="flex items-center justify-between mb-4">
-                <h3 class="text-xl font-semibold text-gray-900">AI CV Improvement</h3>
-                <button onclick="this.closest('.fixed').remove()" class="text-gray-400 hover:text-gray-600">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                    </svg>
-                </button>
-            </div>
-            
-            <div class="space-y-4">
-                <div>
-                    <label for="improvement-industry" class="block text-sm font-medium text-gray-700 mb-2">
-                        Target Industry
-                    </label>
-                    <select id="improvement-industry" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                        <option value="technology" ${currentIndustry === 'technology' ? 'selected' : ''}>Technology</option>
-                        <option value="product" ${currentIndustry === 'product' ? 'selected' : ''}>Product Management</option>
-                        <option value="engineering" ${currentIndustry === 'engineering' ? 'selected' : ''}>Engineering</option>
-                        <option value="marketing" ${currentIndustry === 'marketing' ? 'selected' : ''}>Marketing</option>
-                        <option value="sales" ${currentIndustry === 'sales' ? 'selected' : ''}>Sales</option>
-                        <option value="finance" ${currentIndustry === 'finance' ? 'selected' : ''}>Finance</option>
-                        <option value="healthcare" ${currentIndustry === 'healthcare' ? 'selected' : ''}>Healthcare</option>
-                        <option value="education" ${currentIndustry === 'education' ? 'selected' : ''}>Education</option>
-                        <option value="consulting" ${currentIndustry === 'consulting' ? 'selected' : ''}>Consulting</option>
-                        <option value="other" ${currentIndustry === 'other' ? 'selected' : ''}>Other</option>
-                    </select>
-                </div>
-                
-                <div class="bg-blue-50 p-3 rounded-lg">
-                    <div class="flex">
-                        <div class="flex-shrink-0">
-                            <svg class="h-5 w-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                            </svg>
-                        </div>
-                        <div class="ml-3">
-                            <p class="text-sm text-blue-700">
-                                Your CV will be analyzed and improved using AI based on ATS feedback. 
-                                The process will generate an optimized PDF version of your resume.
-                            </p>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="bg-gray-50 p-3 rounded-lg">
-                    <h4 class="text-sm font-medium text-gray-900 mb-2">Current ATS Score: ${window.currentResults.advanced_report.ats_score || 'N/A'}</h4>
-                    <div class="text-xs text-gray-600">
-                        ${generateIssuesSummary(window.currentResults.advanced_report)}
-                    </div>
-                </div>
-            </div>
-            
-            <div class="mt-6 flex justify-end space-x-3">
-                <button onclick="this.closest('.fixed').remove()" class="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700">
-                    Cancel
-                </button>
-                <button onclick="startCVImprovement(); this.closest('.fixed').remove();" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
-                    Start AI Improvement
-                </button>
-            </div>
-        </div>
-    `;
+    // Update current ATS score
+    const currentScore = window.currentResults?.advanced_report?.ats_score || 0;
+    document.getElementById('current-ats-score').textContent = currentScore;
     
-    document.body.appendChild(modal);
+    // Update issues summary
+    updateIssuesSummary();
+    
+    // Show modal
+    document.getElementById('cv-improvement-modal').classList.remove('hidden');
+    
+    console.log('✅ CV improvement interface shown');
 }
 
-// Generate issues summary for display
-function generateIssuesSummary(advancedReport) {
-    const issues = advancedReport.issues || [];
-    const missingKeywords = advancedReport.keyword_matches?.missing || [];
-    
-    let summary = [];
-    
-    if (issues.length > 0) {
-        const grammarIssues = issues.filter(i => i.type === 'grammar').length;
-        const spellingIssues = issues.filter(i => i.type === 'spelling').length;
+// Load available CV templates
+async function loadCVTemplates() {
+    try {
+        console.log('🔧 Loading CV templates...');
         
-        if (grammarIssues > 0) summary.push(`${grammarIssues} grammar issues`);
-        if (spellingIssues > 0) summary.push(`${spellingIssues} spelling issues`);
+        const response = await fetch(`${API_BASE_URL}/cv-templates`);
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        if (data.success && data.templates) {
+            console.log('✅ Templates loaded:', data.templates);
+            populateTemplateSelect(data.templates);
+        } else {
+            console.error('❌ Failed to load templates:', data);
+            showError('Failed to load CV templates');
+        }
+        
+    } catch (error) {
+        console.error('❌ Error loading templates:', error);
+        showError('Failed to load CV templates. Please try again.');
+        
+        // Fallback: use default templates
+        const fallbackTemplates = [
+            { id: 'modern_professional', name: 'Modern Professional', description: 'Clean, ATS-friendly corporate style' },
+            { id: 'creative_professional', name: 'Creative Professional', description: 'Modern design with visual hierarchy' },
+            { id: 'academic_research', name: 'Academic/Research', description: 'Formal academic style' },
+            { id: 'executive_leadership', name: 'Executive/Leadership', description: 'Senior-level format' }
+        ];
+        populateTemplateSelect(fallbackTemplates);
+    }
+}
+
+// Populate template selection dropdown
+function populateTemplateSelect(templates) {
+    const templateSelect = document.getElementById('template-select');
+    
+    // Clear existing options
+    templateSelect.innerHTML = '';
+    
+    // Add templates
+    templates.forEach(template => {
+        const option = document.createElement('option');
+        option.value = template.id;
+        option.textContent = `${template.name} - ${template.description}`;
+        templateSelect.appendChild(option);
+    });
+    
+    // Set default selection
+    if (templates.length > 0) {
+        templateSelect.value = templates[0].id;
     }
     
-    if (missingKeywords.length > 0) {
-        summary.push(`${missingKeywords.length} missing keywords`);
+    console.log('✅ Template select populated with', templates.length, 'templates');
+}
+
+// Update issues summary
+function updateIssuesSummary() {
+    const issuesSummary = document.getElementById('issues-summary');
+    const issues = window.currentResults?.advanced_report?.issues || [];
+    
+    if (issues.length === 0) {
+        issuesSummary.innerHTML = '<p class="text-green-600">No major issues found! Your CV is already well-optimized.</p>';
+        return;
     }
     
-    if (summary.length === 0) {
-        summary.push('Minor formatting improvements');
-    }
+    // Group issues by type
+    const issueGroups = {};
+    issues.forEach(issue => {
+        const type = issue.type || 'other';
+        if (!issueGroups[type]) {
+            issueGroups[type] = [];
+        }
+        issueGroups[type].push(issue);
+    });
     
-    return summary.join(', ');
+    // Create summary HTML
+    let summaryHTML = '<div class="space-y-3">';
+    
+    Object.entries(issueGroups).forEach(([type, typeIssues]) => {
+        const count = typeIssues.length;
+        const typeName = type.charAt(0).toUpperCase() + type.slice(1);
+        
+        summaryHTML += `
+            <div class="flex items-center justify-between p-2 bg-white rounded border">
+                <span class="text-sm font-medium text-gray-700">${typeName}</span>
+                <span class="text-sm text-gray-500">${count} issue${count > 1 ? 's' : ''}</span>
+            </div>
+        `;
+    });
+    
+    summaryHTML += '</div>';
+    issuesSummary.innerHTML = summaryHTML;
 }
 
 // Start CV improvement process
 async function startCVImprovement() {
-    const industry = document.getElementById('improvement-industry').value;
-    console.log('🚀 Starting CV improvement for industry:', industry);
-    
-    // Use existing ATS feedback and CV text
-    if (!window.currentResults || !window.currentResults.advanced_report) {
-        showError('No ATS analysis results found. Please analyze a resume first.');
-        return;
-    }
-    
     try {
-        // Show progress
-        showImprovementProgress();
+        console.log('🚀 Starting CV improvement process...');
         
-        // Get the original CV text from the stored results
-        const originalCVText = window.originalCVText || 'CV content from analysis';
-        console.log('📝 Original CV text length:', originalCVText?.length);
-        console.log('📊 ATS feedback:', window.currentResults.advanced_report);
+        // Get selected values
+        const templateId = document.getElementById('template-select').value;
+        const industry = document.getElementById('industry-select-improvement').value;
         
-        if (!originalCVText || originalCVText === 'CV content from analysis') {
-            showError('Original CV text not found. Please re-upload your resume.');
+        if (!templateId) {
+            showError('Please select a CV template');
             return;
         }
         
-        // Create the request payload
+        console.log('Selected template:', templateId);
+        console.log('Selected industry:', industry);
+        
+        // Show progress
+        showImprovementProgress();
+        
+        // Prepare request data
         const requestData = {
-            original_cv_text: originalCVText,
+            original_cv_text: window.originalCVText,
             ats_feedback: window.currentResults.advanced_report,
             industry: industry,
-            original_score: window.currentResults.advanced_report.ats_score
+            original_score: window.currentResults.advanced_report.ats_score,
+            template_id: templateId
         };
         
-        console.log('📤 Sending request data:', requestData);
+        console.log('Request data prepared:', requestData);
         
-        // Call the improvement endpoint
+        // Send improvement request
         const response = await fetch(`${API_BASE_URL}/improve-cv`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
             },
-            body: JSON.stringify(requestData),
-            mode: 'cors'
+            body: JSON.stringify(requestData)
         });
         
-        console.log('📥 Response status:', response.status);
-        console.log('📥 Response headers:', Object.fromEntries(response.headers.entries()));
-        
         if (!response.ok) {
-            let errorMessage = 'CV improvement failed';
-            try {
-                const errorData = await response.json();
-                errorMessage = errorData.detail || errorMessage;
-                console.error('❌ Error response:', errorData);
-            } catch (e) {
-                console.error('❌ Could not parse error response:', e);
-                switch (response.status) {
-                    case 400:
-                        errorMessage = 'Invalid request data.';
-                        break;
-                    case 500:
-                        errorMessage = 'Server error during CV improvement.';
-                        break;
-                    case 503:
-                        errorMessage = 'AI service temporarily unavailable.';
-                        break;
-                    default:
-                        errorMessage = `CV improvement failed (Error ${response.status})`;
-                }
-            }
-            throw new Error(errorMessage);
+            const errorData = await response.json();
+            throw new Error(errorData.detail || `HTTP error! status: ${response.status}`);
         }
         
         const result = await response.json();
-        console.log('✅ Improvement result:', result);
         
         if (result.success) {
+            console.log('✅ CV improvement successful:', result);
             showImprovementResults(result);
         } else {
-            throw new Error('CV improvement processing failed');
+            throw new Error(result.error || 'CV improvement failed');
         }
         
     } catch (error) {
         console.error('❌ CV improvement error:', error);
-        showError(error.message || 'Failed to improve CV. Please try again.');
+        showError(`CV improvement failed: ${error.message}`);
     } finally {
         hideImprovementProgress();
     }

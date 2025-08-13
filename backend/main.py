@@ -38,6 +38,7 @@ class CVImprovementRequest(BaseModel):
     ats_feedback: Dict[str, Any]
     industry: str
     original_score: int
+    template_id: str = "modern_professional"  # Default template
 
 # Configure logging for production
 logging.basicConfig(
@@ -779,18 +780,20 @@ async def improve_cv(request: CVImprovementRequest):
         original_cv_text = request.original_cv_text
         industry = request.industry
         original_score = request.original_score
+        template_id = request.template_id
         
-        logger.info(f"Starting CV improvement for industry: {industry}, score: {original_score}")
+        logger.info(f"Starting CV improvement for industry: {industry}, score: {original_score}, template: {template_id}")
         
         # Initialize CV improver
         cv_improver = CVImprover(model)
         
-        # Improve CV
+        # Improve CV with selected template
         improvement_result = cv_improver.improve_cv(
             original_cv_text=original_cv_text,
             ats_feedback=ats_feedback,
             industry=industry,
-            original_score=original_score
+            original_score=original_score,
+            template_id=template_id
         )
         
         if not improvement_result.get('success'):
@@ -879,6 +882,7 @@ async def improve_cv(request: CVImprovementRequest):
             "pdf_download_url": improved_pdf_url,
             "pdf_data_base64": pdf_data_base64,  # Fallback for direct download
             "changes_made": improvement_result['changes_made'],
+            "template_used": improvement_result.get('template_used', template_id),
             "ats_feedback_summary": {
                 "issues_count": len(ats_feedback.get('issues', [])),
                 "missing_keywords": len(ats_feedback.get('keyword_matches', {}).get('missing', [])),
@@ -901,6 +905,43 @@ async def improve_cv(request: CVImprovementRequest):
     finally:
         if cv_improver:
             cv_improver.cleanup()
+
+@app.get("/cv-templates")
+async def get_cv_templates():
+    """Get available CV templates"""
+    try:
+        if not model:
+            raise HTTPException(status_code=503, detail="AI model not available")
+        
+        cv_improver = CVImprover(model)
+        templates = cv_improver.get_available_templates()
+        
+        return JSONResponse(content={
+            "success": True,
+            "templates": templates,
+            "timestamp": datetime.utcnow().isoformat()
+        }, headers={
+            "Access-Control-Allow-Origin": "https://cv-parser-frontend-qgx0.onrender.com",
+            "Access-Control-Allow-Methods": "GET, OPTIONS",
+            "Access-Control-Allow-Headers": "*"
+        })
+        
+    except Exception as e:
+        logger.error(f"Error getting CV templates: {e}")
+        raise HTTPException(status_code=500, detail="Failed to get CV templates")
+
+@app.options("/cv-templates")
+async def cv_templates_options():
+    """Handle CORS preflight request for CV templates endpoint"""
+    return JSONResponse(
+        content={"message": "CORS preflight"},
+        headers={
+            "Access-Control-Allow-Origin": "https://cv-parser-frontend-qgx0.onrender.com",
+            "Access-Control-Allow-Methods": "GET, OPTIONS",
+            "Access-Control-Allow-Headers": "*",
+            "Access-Control-Max-Age": "86400"
+        }
+    )
 
 @app.options("/test-cors")
 async def test_cors_options():
