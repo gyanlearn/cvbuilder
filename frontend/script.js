@@ -76,6 +76,60 @@ function handleFileSelect(e) {
     }
 }
 
+// ===== CV IMPROVEMENT FUNCTIONS =====
+
+// Check data function for debugging
+function checkData() {
+    console.log('📊 Checking available data...');
+    
+    const data = {
+        currentResults: window.currentResults,
+        advancedReport: window.currentResults?.advanced_report,
+        originalCVText: window.originalCVText,
+        originalCVTextLength: window.originalCVText?.length,
+        hasAtsScore: !!window.currentResults?.advanced_report?.ats_score,
+        atsScore: window.currentResults?.advanced_report?.ats_score,
+        issuesCount: window.currentResults?.advanced_report?.issues?.length || 0,
+        missingKeywords: window.currentResults?.advanced_report?.keyword_matches?.missing?.length || 0
+    };
+    
+    console.log('📊 Data summary:', data);
+    
+    // Show data in alert for quick check
+    let message = 'Data Check Results:\n\n';
+    message += `Current Results: ${data.currentResults ? '✅ Available' : '❌ Missing'}\n`;
+    message += `Advanced Report: ${data.advancedReport ? '✅ Available' : '❌ Missing'}\n`;
+    message += `Original CV Text: ${data.originalCVText ? `✅ Available (${data.originalCVTextLength} chars)` : '❌ Missing'}\n`;
+    message += `ATS Score: ${data.hasAtsScore ? `✅ ${data.atsScore}` : '❌ Missing'}\n`;
+    message += `Issues Count: ${data.issuesCount}\n`;
+    message += `Missing Keywords: ${data.missingKeywords}\n`;
+    
+    alert(message);
+    
+    return data;
+}
+
+// Optimize Button Handler
+function handleOptimizeClick() {
+    alert('Button clicked! Starting CV improvement...'); // Immediate feedback
+    
+    console.log('🔍 Optimize button clicked');
+    console.log('Current results:', window.currentResults);
+    console.log('Advanced report:', window.currentResults?.advanced_report);
+    console.log('Original CV text:', window.originalCVText);
+    
+    // Check if we have ATS analysis results
+    if (!window.currentResults || !window.currentResults.advanced_report) {
+        alert('No ATS analysis results found. Please analyze a resume first.');
+        return;
+    }
+    
+    // Show the CV improvement interface
+    showCVImprovementInterface();
+}
+
+// ===== FILE HANDLING FUNCTIONS =====
+
 // File Handling
 function handleFile(file) {
     // Store original file for CV improvement
@@ -793,25 +847,6 @@ function showSuccess(message) {
             successDiv.remove();
         }
     }, 5000);
-}
-
-// Optimize Button Handler
-function handleOptimizeClick() {
-    alert('Button clicked! Starting CV improvement...'); // Immediate feedback
-    
-    console.log('🔍 Optimize button clicked');
-    console.log('Current results:', window.currentResults);
-    console.log('Advanced report:', window.currentResults?.advanced_report);
-    console.log('Original CV text:', window.originalCVText);
-    
-    // Check if we have ATS analysis results
-    if (!window.currentResults || !window.currentResults.advanced_report) {
-        alert('No ATS analysis results found. Please analyze a resume first.');
-        return;
-    }
-    
-    // Show the CV improvement interface
-    showCVImprovementInterface();
 }
 
 // Show CV improvement interface
@@ -1543,10 +1578,16 @@ function testCVImprovement() {
 function initializeEventListeners() {
     console.log('🔧 Initializing event listeners...');
     
+    // Get all button elements
+    const testOptimizeBtn = document.getElementById('test-optimize-btn');
+    const checkDataBtn = document.getElementById('check-data-btn');
+    
     // Check if elements exist
     console.log('Drop zone:', dropZone);
     console.log('File input:', fileInput);
     console.log('Optimize button:', optimizeBtn);
+    console.log('Test optimize button:', testOptimizeBtn);
+    console.log('Check data button:', checkDataBtn);
     
     if (optimizeBtn) {
         console.log('✅ Optimize button found, attaching click handler');
@@ -1554,6 +1595,22 @@ function initializeEventListeners() {
         console.log('✅ Click handler attached to optimize button');
     } else {
         console.error('❌ Optimize button not found!');
+    }
+    
+    if (testOptimizeBtn) {
+        console.log('✅ Test optimize button found, attaching click handler');
+        testOptimizeBtn.addEventListener('click', handleOptimizeClick);
+        console.log('✅ Click handler attached to test optimize button');
+    } else {
+        console.error('❌ Test optimize button not found!');
+    }
+    
+    if (checkDataBtn) {
+        console.log('✅ Check data button found, attaching click handler');
+        checkDataBtn.addEventListener('click', checkData);
+        console.log('✅ Click handler attached to check data button');
+    } else {
+        console.error('❌ Check data button not found!');
     }
     
     if (dropZone) {
@@ -1572,10 +1629,35 @@ function initializeEventListeners() {
 // Initialize
 initializeEventListeners();
 
+// Fallback: Ensure test buttons work even if event listeners fail
+setTimeout(() => {
+    console.log('🔧 Setting up fallback button handlers...');
+    
+    const testOptimizeBtn = document.getElementById('test-optimize-btn');
+    const checkDataBtn = document.getElementById('check-data-btn');
+    
+    if (testOptimizeBtn && typeof handleOptimizeClick === 'function') {
+        // Remove any existing listeners and add fresh ones
+        testOptimizeBtn.replaceWith(testOptimizeBtn.cloneNode(true));
+        const newTestBtn = document.getElementById('test-optimize-btn');
+        newTestBtn.addEventListener('click', handleOptimizeClick);
+        console.log('✅ Fallback handler attached to test optimize button');
+    }
+    
+    if (checkDataBtn && typeof checkData === 'function') {
+        // Remove any existing listeners and add fresh ones
+        checkDataBtn.replaceWith(checkDataBtn.cloneNode(true));
+        const newCheckBtn = document.getElementById('check-data-btn');
+        newCheckBtn.addEventListener('click', checkData);
+        console.log('✅ Fallback handler attached to check data button');
+    }
+}, 1000);
+
 // Test function availability
 console.log('🧪 Testing function availability...');
 console.log('handleOptimizeClick function:', typeof handleOptimizeClick);
 console.log('showCVImprovementInterface function:', typeof showCVImprovementInterface);
+console.log('checkData function:', typeof checkData);
 
 // Make functions globally available for testing
 window.testOptimizeClick = handleOptimizeClick;
@@ -1587,33 +1669,26 @@ console.log('  - testOptimizeClick() - Test the optimize button handler');
 console.log('  - testShowInterface() - Test showing the improvement interface');
 console.log('  - checkData() - Check available data for CV improvement');
 
-// Check data function for debugging
-function checkData() {
-    console.log('📊 Checking available data...');
+// Test if functions are working
+try {
+    console.log('🧪 Testing function calls...');
+    if (typeof handleOptimizeClick === 'function') {
+        console.log('✅ handleOptimizeClick is a function');
+    } else {
+        console.error('❌ handleOptimizeClick is not a function:', typeof handleOptimizeClick);
+    }
     
-    const data = {
-        currentResults: window.currentResults,
-        advancedReport: window.currentResults?.advanced_report,
-        originalCVText: window.originalCVText,
-        originalCVTextLength: window.originalCVText?.length,
-        hasAtsScore: !!window.currentResults?.advanced_report?.ats_score,
-        atsScore: window.currentResults?.advanced_report?.ats_score,
-        issuesCount: window.currentResults?.advanced_report?.issues?.length || 0,
-        missingKeywords: window.currentResults?.advanced_report?.keyword_matches?.missing?.length || 0
-    };
+    if (typeof showCVImprovementInterface === 'function') {
+        console.log('✅ showCVImprovementInterface is a function');
+    } else {
+        console.error('❌ showCVImprovementInterface is not a function:', typeof showCVImprovementInterface);
+    }
     
-    console.log('📊 Data summary:', data);
-    
-    // Show data in alert for quick check
-    let message = 'Data Check Results:\n\n';
-    message += `Current Results: ${data.currentResults ? '✅ Available' : '❌ Missing'}\n`;
-    message += `Advanced Report: ${data.advancedReport ? '✅ Available' : '❌ Missing'}\n`;
-    message += `Original CV Text: ${data.originalCVText ? `✅ Available (${data.originalCVTextLength} chars)` : '❌ Missing'}\n`;
-    message += `ATS Score: ${data.hasAtsScore ? `✅ ${data.atsScore}` : '❌ Missing'}\n`;
-    message += `Issues Count: ${data.issuesCount}\n`;
-    message += `Missing Keywords: ${data.missingKeywords}\n`;
-    
-    alert(message);
-    
-    return data;
+    if (typeof checkData === 'function') {
+        console.log('✅ checkData is a function');
+    } else {
+        console.error('❌ checkData is not a function:', typeof checkData);
+    }
+} catch (error) {
+    console.error('❌ Error testing functions:', error);
 }
