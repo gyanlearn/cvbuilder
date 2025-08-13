@@ -51,17 +51,22 @@ optimizeBtn.addEventListener('click', handleOptimizeClick);
 // Drag and Drop Handlers
 function handleDragOver(e) {
     e.preventDefault();
-    dropZone.classList.add('dragover');
+    dropZone.classList.add('border-blue-400', 'bg-blue-50');
+}
+
+function handleDragEnter(e) {
+    e.preventDefault();
+    dropZone.classList.add('border-blue-400', 'bg-blue-50');
 }
 
 function handleDragLeave(e) {
     e.preventDefault();
-    dropZone.classList.remove('dragover');
+    dropZone.classList.remove('border-blue-400', 'bg-blue-50');
 }
 
 function handleDrop(e) {
     e.preventDefault();
-    dropZone.classList.remove('dragover');
+    dropZone.classList.remove('border-blue-400', 'bg-blue-50');
     
     const files = e.dataTransfer.files;
     if (files.length > 0) {

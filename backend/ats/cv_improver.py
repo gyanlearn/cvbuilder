@@ -157,35 +157,84 @@ Improved CV:"""
                       original_cv_text: str) -> Optional[str]:
         """Generate PDF using PyMuPDF based on improvement strategy"""
         try:
+            logger.info(f"Starting PDF generation with text length: {len(improved_cv_text)}")
+            logger.info(f"Strategy: {strategy}")
+            
             # Create PDF filename
             timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
             pdf_filename = f"improved_cv_{strategy}_{timestamp}.pdf"
             pdf_path = os.path.join(self.temp_dir, pdf_filename)
             
-            logger.info(f"Starting PDF generation for strategy: {strategy}")
             logger.info(f"PDF will be saved to: {pdf_path}")
+            logger.info(f"Temp directory: {self.temp_dir}")
+            logger.info(f"Temp directory exists: {os.path.exists(self.temp_dir)}")
             
-            # Create PDF document
-            doc = fitz.open()
-            
-            if strategy == "minor_fix":
-                # Preserve original layout style
-                page = doc.new_page(width=595, height=842)  # A4 size
-                self._add_text_to_page(page, improved_cv_text, preserve_style=True)
+            # Try the complex PDF generation first
+            try:
+                # Create PDF document
+                logger.info("Creating PDF document...")
+                doc = fitz.open()
+                logger.info("PDF document created successfully")
                 
-            elif strategy == "major_overhaul":
-                # Clean, modern ATS-friendly layout
-                page = doc.new_page(width=595, height=842)
-                self._add_text_to_page(page, improved_cv_text, preserve_style=False)
+                if strategy == "minor_fix":
+                    # Preserve original layout style
+                    logger.info("Creating page for minor_fix strategy...")
+                    page = doc.new_page(width=595, height=842)  # A4 size
+                    logger.info("Page created, adding text...")
+                    self._add_text_to_page(page, improved_cv_text, preserve_style=True)
+                    logger.info("Text added successfully")
+                    
+                elif strategy == "major_overhaul":
+                    # Clean, modern ATS-friendly layout
+                    logger.info("Creating page for major_overhaul strategy...")
+                    page = doc.new_page(width=595, height=842)
+                    logger.info("Page created, adding text...")
+                    self._add_text_to_page(page, improved_cv_text, preserve_style=False)
+                    logger.info("Text added successfully")
+                    
+                else:  # hybrid
+                    # Balance between original and optimized
+                    logger.info("Creating page for hybrid strategy...")
+                    page = doc.new_page(width=595, height=842)
+                    logger.info("Page created, adding text...")
+                    self._add_text_to_page(page, improved_cv_text, preserve_style=True)
+                    logger.info("Text added successfully")
                 
-            else:  # hybrid
-                # Balance between original and optimized
+                # Save PDF
+                logger.info("Saving PDF...")
+                doc.save(pdf_path)
+                doc.close()
+                logger.info("PDF saved and document closed")
+                
+            except Exception as complex_error:
+                logger.warning(f"Complex PDF generation failed: {complex_error}")
+                logger.info("Falling back to simple PDF generation...")
+                
+                # Fallback: Simple PDF with just text
+                doc = fitz.open()
                 page = doc.new_page(width=595, height=842)
-                self._add_text_to_page(page, improved_cv_text, preserve_style=True)
-            
-            # Save PDF
-            doc.save(pdf_path)
-            doc.close()
+                
+                # Simple text insertion
+                lines = improved_cv_text.split('\n')
+                y_position = 50
+                
+                for line in lines[:50]:  # Limit to first 50 lines to avoid overflow
+                    if line.strip():
+                        try:
+                            page.insert_text(
+                                point=(50, y_position),
+                                text=line.strip(),
+                                fontsize=10,
+                                fontname="helv",
+                                color=(0, 0, 0)
+                            )
+                            y_position += 15
+                        except:
+                            continue  # Skip problematic lines
+                
+                doc.save(pdf_path)
+                doc.close()
+                logger.info("Simple PDF generated successfully")
             
             # Verify PDF was created and has content
             if os.path.exists(pdf_path):
@@ -211,8 +260,12 @@ Improved CV:"""
     def _add_text_to_page(self, page, text: str, preserve_style: bool = True):
         """Add text to PDF page with appropriate formatting"""
         try:
+            logger.info(f"Starting to add text to page (text length: {len(text)})")
+            
             # Split text into sections
+            logger.info("Parsing CV sections...")
             sections = self._parse_cv_sections(text)
+            logger.info(f"Parsed sections: {list(sections.keys())}")
             
             y_position = 50  # Start position from top
             left_margin = 50
@@ -220,6 +273,7 @@ Improved CV:"""
             
             # Add title
             if sections.get('header'):
+                logger.info(f"Adding header: {sections['header'][:50]}...")
                 page.insert_text(
                     point=(left_margin, y_position),
                     text=sections['header'],
@@ -228,9 +282,11 @@ Improved CV:"""
                     color=(0, 0, 0)
                 )
                 y_position += 30
+                logger.info("Header added successfully")
             
             # Add contact info
             if sections.get('contact'):
+                logger.info(f"Adding contact info: {sections['contact'][:50]}...")
                 page.insert_text(
                     point=(left_margin, y_position),
                     text=sections['contact'],
@@ -239,9 +295,11 @@ Improved CV:"""
                     color=(0, 0, 0)
                 )
                 y_position += 20
+                logger.info("Contact info added successfully")
             
             # Add summary
             if sections.get('summary'):
+                logger.info("Adding summary section...")
                 page.insert_text(
                     point=(left_margin, y_position),
                     text="PROFESSIONAL SUMMARY",
@@ -252,6 +310,7 @@ Improved CV:"""
                 y_position += 20
                 
                 # Wrap text to fit page width
+                logger.info("Wrapping summary text...")
                 wrapped_text = self._wrap_text(sections['summary'], right_margin - left_margin, 10)
                 page.insert_text(
                     point=(left_margin, y_position),
@@ -261,9 +320,11 @@ Improved CV:"""
                     color=(0, 0, 0)
                 )
                 y_position += 30
+                logger.info("Summary added successfully")
             
             # Add skills
             if sections.get('skills'):
+                logger.info("Adding skills section...")
                 page.insert_text(
                     point=(left_margin, y_position),
                     text="SKILLS",
@@ -282,9 +343,11 @@ Improved CV:"""
                     color=(0, 0, 0)
                 )
                 y_position += 30
+                logger.info("Skills added successfully")
             
             # Add experience
             if sections.get('experience'):
+                logger.info("Adding experience section...")
                 page.insert_text(
                     point=(left_margin, y_position),
                     text="PROFESSIONAL EXPERIENCE",
@@ -294,34 +357,37 @@ Improved CV:"""
                 )
                 y_position += 20
                 
-                for exp in sections['experience']:
+                for i, exp in enumerate(sections['experience']):
+                    logger.info(f"Adding experience {i+1}: {exp.get('title', 'Unknown')}")
                     if y_position > 750:  # Check if we need a new page
+                        logger.info("Creating new page for experience...")
                         page = self._add_new_page_if_needed(page)
                         y_position = 50
                     
-                    # Company and title
-                    company_title = f"{exp.get('company', '')} - {exp.get('title', '')}"
-                    page.insert_text(
-                        point=(left_margin, y_position),
-                        text=company_title,
-                        fontsize=12,
-                        fontname="helv-b",
-                        color=(0, 0, 0)
-                    )
-                    y_position += 15
-                    
-                    # Duration
-                    if exp.get('duration'):
+                    # Add job title
+                    if exp.get('title'):
                         page.insert_text(
                             point=(left_margin, y_position),
-                            text=exp['duration'],
+                            text=exp['title'],
+                            fontsize=12,
+                            fontname="helv-b",
+                            color=(0, 0, 0)
+                        )
+                        y_position += 15
+                    
+                    # Add company and duration
+                    company_duration = f"{exp.get('company', '')} | {exp.get('duration', '')}"
+                    if company_duration.strip() != '|':
+                        page.insert_text(
+                            point=(left_margin, y_position),
+                            text=company_duration,
                             fontsize=10,
                             fontname="helv",
                             color=(0.5, 0.5, 0.5)
                         )
                         y_position += 15
                     
-                    # Description
+                    # Add description
                     if exp.get('description'):
                         wrapped_desc = self._wrap_text(exp['description'], right_margin - left_margin, 10)
                         page.insert_text(
@@ -333,14 +399,13 @@ Improved CV:"""
                         )
                         y_position += 20
                     
-                    y_position += 10
+                    y_position += 10  # Space between experiences
+                
+                logger.info("Experience section added successfully")
             
             # Add education
             if sections.get('education'):
-                if y_position > 750:
-                    page = self._add_new_page_if_needed(page)
-                    y_position = 50
-                
+                logger.info("Adding education section...")
                 page.insert_text(
                     point=(left_margin, y_position),
                     text="EDUCATION",
@@ -352,41 +417,57 @@ Improved CV:"""
                 
                 for edu in sections['education']:
                     if y_position > 750:
+                        logger.info("Creating new page for education...")
                         page = self._add_new_page_if_needed(page)
                         y_position = 50
                     
-                    edu_text = f"{edu.get('degree', '')} - {edu.get('institution', '')}"
-                    page.insert_text(
-                        point=(left_margin, y_position),
-                        text=edu_text,
-                        fontsize=10,
-                        fontname="helv",
-                        color=(0, 0, 0)
-                    )
-                    y_position += 15
-                    
-                    if edu.get('year'):
+                    # Add degree
+                    if edu.get('degree'):
                         page.insert_text(
                             point=(left_margin, y_position),
-                            text=edu['year'],
+                            text=edu['degree'],
+                            fontsize=12,
+                            fontname="helv-b",
+                            color=(0, 0, 0)
+                        )
+                        y_position += 15
+                    
+                    # Add institution and year
+                    institution_year = f"{edu.get('institution', '')} | {edu.get('year', '')}"
+                    if institution_year.strip() != '|':
+                        page.insert_text(
+                            point=(left_margin, y_position),
+                            text=institution_year,
                             fontsize=10,
                             fontname="helv",
                             color=(0.5, 0.5, 0.5)
                         )
                         y_position += 20
-                    else:
-                        y_position += 5
+                
+                logger.info("Education section added successfully")
+            
+            logger.info("All text added to page successfully")
             
         except Exception as e:
             logger.error(f"Error adding text to page: {e}")
-            raise
+            logger.error(f"Error details: {type(e).__name__}: {str(e)}")
+            import traceback
+            logger.error(f"Traceback: {traceback.format_exc()}")
+            raise  # Re-raise to be caught by the calling function
     
     def _add_new_page_if_needed(self, current_page):
-        """Add a new page if needed and return it"""
-        doc = current_page.parent
-        new_page = doc.new_page(width=595, height=842)
-        return new_page
-    
+        """Add a new page if needed and return the new page"""
+        try:
+            logger.info("Adding new page...")
+            doc = current_page.parent
+            new_page = doc.new_page(width=595, height=842)  # A4 size
+            logger.info("New page added successfully")
+            return new_page
+        except Exception as e:
+            logger.error(f"Error adding new page: {e}")
+            # Return the current page if we can't add a new one
+            return current_page
+
     def _parse_cv_sections(self, text: str) -> Dict[str, Any]:
         """Parse CV text into structured sections"""
         sections = {}
