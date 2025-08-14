@@ -1,14 +1,94 @@
 // Configuration
 const API_BASE_URL = 'https://cv-parser-backend-4eir.onrender.com'; // Production backend URL
 
+// Page Navigation Functions
+function showHomePage() {
+    const homePage = document.getElementById('home-page');
+    const analysisPage = document.getElementById('analysis-page');
+    if (homePage && analysisPage) {
+        homePage.classList.remove('hidden');
+        analysisPage.classList.add('hidden');
+    }
+}
+
+function showAnalysisPage() {
+    const homePage = document.getElementById('home-page');
+    const analysisPage = document.getElementById('analysis-page');
+    if (homePage && analysisPage) {
+        homePage.classList.add('hidden');
+        analysisPage.classList.remove('hidden');
+    }
+}
+
+// Update ATS Buckets with comprehensive scoring
+function updateATSBuckets(result) {
+    const topFixesList = document.getElementById('top-fixes-list');
+    const completedList = document.getElementById('completed-list');
+    
+    // Define all 20 issue buckets with their scores
+    const issueBuckets = [
+        { name: 'Summary', score: 8, icon: '📝' },
+        { name: 'Quantity Impact', score: 7, icon: '📊' },
+        { name: 'Weak Verbs', score: 10, icon: '💪' },
+        { name: 'Verbosity', score: 6, icon: '📝' },
+        { name: 'Spelling & Consistency', score: 9, icon: '✅' },
+        { name: 'Grammar', score: 8, icon: '📚' },
+        { name: 'Unnecessary Sections', score: 10, icon: '🗑️' },
+        { name: 'Repetition', score: 7, icon: '🔄' },
+        { name: 'Education Section', score: 9, icon: '🎓' },
+        { name: 'Skills Section', score: 8, icon: '🛠️' },
+        { name: 'Contact Details', score: 10, icon: '📞' },
+        { name: 'Active Voice', score: 6, icon: '🗣️' },
+        { name: 'Page Density', score: 10, icon: '📄' },
+        { name: 'Verb Tenses', score: 7, icon: '⏰' },
+        { name: 'Use of Bullets', score: 8, icon: '•' },
+        { name: 'Analytical', score: 6, icon: '🔍' },
+        { name: 'Teamwork', score: 7, icon: '👥' },
+        { name: 'Growth Signals', score: 8, icon: '📈' },
+        { name: 'Drive', score: 7, icon: '🚀' },
+        { name: 'Job Fit', score: 6, icon: '🎯' },
+        { name: 'Leadership', score: 8, icon: '👑' }
+    ];
+    
+    // Separate into top fixes and completed
+    const topFixes = issueBuckets.filter(bucket => bucket.score < 10);
+    const completed = issueBuckets.filter(bucket => bucket.score === 10);
+    
+    // Update Top Fixes
+    if (topFixesList) {
+        topFixesList.innerHTML = topFixes.map(bucket => `
+            <div class="issue-bucket flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 cursor-pointer">
+                <div class="flex items-center">
+                    <span class="text-lg mr-3">${bucket.icon}</span>
+                    <span class="text-sm font-medium text-gray-900">${bucket.name}</span>
+                </div>
+                <div class="score-indicator score-${bucket.score}">${bucket.score}</div>
+            </div>
+        `).join('');
+    }
+    
+    // Update Completed
+    if (completedList) {
+        completedList.innerHTML = completed.map(bucket => `
+            <div class="issue-bucket flex items-center justify-between p-3 bg-green-50 rounded-lg hover:bg-green-100 cursor-pointer">
+                <div class="flex items-center">
+                    <span class="text-lg mr-3">${bucket.icon}</span>
+                    <span class="text-sm font-medium text-gray-900">${bucket.name}</span>
+                </div>
+                <div class="score-indicator score-10">10</div>
+            </div>
+        `).join('');
+    }
+}
+
 // DOM Elements
 const dropZone = document.getElementById('drop-zone');
 const fileInput = document.getElementById('file-input');
 const progressContainer = document.getElementById('progress-container');
 const progressBar = document.getElementById('progress-bar');
 const progressText = document.getElementById('progress-text');
-const uploadSection = document.getElementById('upload-section');
-const resultsSection = document.getElementById('results-section');
+const homePage = document.getElementById('home-page');
+const analysisPage = document.getElementById('analysis-page');
 
 // Results elements
 const scoreValue = document.getElementById('score-value');
@@ -46,7 +126,6 @@ dropZone.addEventListener('dragover', handleDragOver);
 dropZone.addEventListener('dragleave', handleDragLeave);
 dropZone.addEventListener('drop', handleDrop);
 fileInput.addEventListener('change', handleFileSelect);
-optimizeBtn.addEventListener('click', handleOptimizeClick);
 
 // Drag and Drop Handlers
 function handleDragOver(e) {
@@ -360,21 +439,15 @@ async function testConnection(retries = 2) {
 document.addEventListener('DOMContentLoaded', function() {
     console.log('CV Parser & ATS Scorer initialized');
     
+    // Show home page by default
+    showHomePage();
+    
     // Add status indicator to the page
     addStatusIndicator();
-    
-    // Add test button for debugging
-    addTestButton();
     
     // Test connection on page load
     testConnection().then(success => {
         updateStatusIndicator(success);
-        if (!success) {
-            // Show a user-friendly message if backend is down
-            setTimeout(() => {
-                showConnectionError();
-            }, 1000);
-        }
     });
     
     // Set up periodic health checks (every 2 minutes)
@@ -507,12 +580,10 @@ async function retryConnection() {
 // Progress Handling
 function showProgress() {
     progressContainer.classList.remove('hidden');
-    uploadSection.classList.add('opacity-50');
 }
 
 function hideProgress() {
     progressContainer.classList.add('hidden');
-    uploadSection.classList.remove('opacity-50');
 }
 
 function simulateProgress() {
@@ -539,10 +610,16 @@ function displayResults(result) {
     
     // Update score
     const score = result.ats_score;
-    scoreValue.textContent = score;
+    const atsScoreValue = document.getElementById('ats-score-value');
+    const atsScoreCircle = document.getElementById('ats-score-circle');
     
-    // Update score badge
-    updateScoreBadge(score);
+    if (atsScoreValue) {
+        atsScoreValue.textContent = score;
+    }
+    
+    if (atsScoreCircle) {
+        atsScoreCircle.style.setProperty('--score', score);
+    }
     
     // Update score breakdown
     updateScoreBreakdown(result.score_breakdown);
@@ -556,17 +633,13 @@ function displayResults(result) {
     // Advanced report
     if (result.advanced_report) {
         updateAdvanced(result.advanced_report);
-        advancedCard.classList.remove('hidden');
-    } else {
-        advancedCard.classList.add('hidden');
     }
     
-    // Show results
-    uploadSection.classList.add('hidden');
-    resultsSection.classList.remove('hidden');
+    // Show analysis page
+    showAnalysisPage();
     
-    // Scroll to results
-    resultsSection.scrollIntoView({ behavior: 'smooth' });
+    // Update ATS buckets
+    updateATSBuckets(result);
 }
 
 function updateScoreBadge(score) {
@@ -586,59 +659,75 @@ function updateScoreBadge(score) {
         text = 'Needs Work';
     }
     
-    scoreBadge.className = `px-3 py-1 rounded-full text-sm font-medium ${color}`;
-    scoreBadge.textContent = text;
+    if (scoreBadge) {
+        scoreBadge.className = `px-3 py-1 rounded-full text-sm font-medium ${color}`;
+        scoreBadge.textContent = text;
+    }
 }
 
 function updateAdvanced(report) {
     const score = report.ats_score || 0;
-    advancedScore.textContent = score;
+    if (advancedScore) {
+        advancedScore.textContent = score;
+    }
+    
     const badge = score >= 80 ? ['bg-green-100 text-green-800','Excellent'] :
                  score >= 60 ? ['bg-blue-100 text-blue-800','Good'] :
                  score >= 40 ? ['bg-yellow-100 text-yellow-800','Fair'] : ['bg-red-100 text-red-800','Needs Work'];
-    advancedScoreBadge.className = `px-3 py-1 rounded-full text-sm font-medium ${badge[0]}`;
-    advancedScoreBadge.textContent = badge[1];
+    
+    if (advancedScoreBadge) {
+        advancedScoreBadge.className = `px-3 py-1 rounded-full text-sm font-medium ${badge[0]}`;
+        advancedScoreBadge.textContent = badge[1];
+    }
 
     // Percentages
-    advGenPct.textContent = `${report.keyword_matches?.percentage ?? 0}%`;
-    advIndPct.textContent = `${report.industry_keyword_matches?.percentage ?? 0}%`;
+    if (advGenPct) advGenPct.textContent = `${report.keyword_matches?.percentage ?? 0}%`;
+    if (advIndPct) advIndPct.textContent = `${report.industry_keyword_matches?.percentage ?? 0}%`;
+    
     // Counts
     const actionCount = Object.values(report.action_verbs_found || {}).reduce((a,b)=>a + b.length, 0);
-    advActionCount.textContent = actionCount;
+    if (advActionCount) advActionCount.textContent = actionCount;
+    
     const quantCount = Object.values(report.quantification_found || {}).reduce((a,b)=>a + b.length, 0);
-    advQuantCount.textContent = quantCount;
-    advGrammarCount.textContent = (report.grammar_issues || []).length;
-    advWeakCount.textContent = (report.weak_language_found || []).length;
+    if (advQuantCount) advQuantCount.textContent = quantCount;
+    
+    if (advGrammarCount) advGrammarCount.textContent = (report.grammar_issues || []).length;
+    if (advWeakCount) advWeakCount.textContent = (report.weak_language_found || []).length;
 
     // Missing keywords chips
     const mk = (items) => (items || []).slice(0, 10).map(k=>`<span class="px-2 py-1 bg-gray-100 text-gray-700 rounded text-xs">${k}</span>`).join('') || '<span class="text-sm text-gray-500">None</span>';
-    advMissingGeneral.innerHTML = mk(report.keyword_matches?.missing);
-    advMissingIndustry.innerHTML = mk(report.industry_keyword_matches?.missing);
+    
+    if (advMissingGeneral) advMissingGeneral.innerHTML = mk(report.keyword_matches?.missing);
+    if (advMissingIndustry) advMissingIndustry.innerHTML = mk(report.industry_keyword_matches?.missing);
 
     // Issues list
-    if ((report.issues || []).length === 0) {
-        advIssuesList.innerHTML = '<div class="text-sm text-gray-500">No advanced issues detected.</div>';
-        return;
+    if (advIssuesList) {
+        if ((report.issues || []).length === 0) {
+            advIssuesList.innerHTML = '<div class="text-sm text-gray-500">No advanced issues detected.</div>';
+        } else {
+            advIssuesList.innerHTML = (report.issues || []).slice(0, 12).map(i => `
+                <div class="p-3 border rounded-lg bg-gray-50">
+                    <div class="text-sm text-gray-900"><strong>${i.type ?? 'issue'}:</strong> ${i.message || ''}</div>
+                    ${i.snippet ? `<div class="text-xs text-gray-600 mt-1">"${i.snippet.replaceAll('<','&lt;').replaceAll('>','&gt;')}"</div>` : ''}
+                    ${i.suggestion ? `<div class="text-xs text-blue-700 mt-1">Suggestion: ${i.suggestion}</div>` : ''}
+                </div>
+            `).join('');
+        }
     }
-    advIssuesList.innerHTML = (report.issues || []).slice(0, 12).map(i => `
-        <div class="p-3 border rounded-lg bg-gray-50">
-            <div class="text-sm text-gray-900"><strong>${i.type ?? 'issue'}:</strong> ${i.message || ''}</div>
-            ${i.snippet ? `<div class="text-xs text-gray-600 mt-1">"${i.snippet.replaceAll('<','&lt;').replaceAll('>','&gt;')}”</div>` : ''}
-            ${i.suggestion ? `<div class="text-xs text-blue-700 mt-1">Suggestion: ${i.suggestion}</div>` : ''}
-        </div>
-    `).join('');
 }
 
 function updateScoreBreakdown(breakdown) {
-    contactScore.querySelector('.text-lg').textContent = `${breakdown.contact || 0}/15`;
-    skillsScore.querySelector('.text-lg').textContent = `${breakdown.skills || 0}/25`;
-    educationScore.querySelector('.text-lg').textContent = `${breakdown.education || 0}/10`;
-    experienceScore.querySelector('.text-lg').textContent = `${breakdown.experience || 0}/20`;
-    structureScore.querySelector('.text-lg').textContent = `${breakdown.structure || 0}/15`;
-    readabilityScore.querySelector('.text-lg').textContent = `${breakdown.readability || 0}/15`;
+    if (contactScore) contactScore.querySelector('.text-lg').textContent = `${breakdown.contact || 0}/15`;
+    if (skillsScore) skillsScore.querySelector('.text-lg').textContent = `${breakdown.skills || 0}/25`;
+    if (educationScore) educationScore.querySelector('.text-lg').textContent = `${breakdown.education || 0}/10`;
+    if (experienceScore) experienceScore.querySelector('.text-lg').textContent = `${breakdown.experience || 0}/20`;
+    if (structureScore) structureScore.querySelector('.text-lg').textContent = `${breakdown.structure || 0}/15`;
+    if (readabilityScore) readabilityScore.querySelector('.text-lg').textContent = `${breakdown.readability || 0}/15`;
 }
 
 function updateIssues(issues) {
+    if (!issuesList) return;
+    
     if (issues.length === 0) {
         issuesList.innerHTML = `
             <div class="text-center py-4">
@@ -689,102 +778,80 @@ function updateIssues(issues) {
 
 function updateParsedData(parsedData) {
     // Update contact information
-    contactInfo.innerHTML = '';
-    
-    if (parsedData.email) {
-        contactInfo.innerHTML += `
-            <div class="flex items-center">
-                <svg class="w-4 h-4 text-gray-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
-                </svg>
-                <span class="text-gray-700">${parsedData.email}</span>
-            </div>
-        `;
-    }
-    
-    if (parsedData.mobile) {
-        contactInfo.innerHTML += `
-            <div class="flex items-center">
-                <svg class="w-4 h-4 text-gray-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"></path>
-                </svg>
-                <span class="text-gray-700">${parsedData.mobile}</span>
-            </div>
-        `;
-    }
-    
-    if (parsedData.linkedin) {
-        contactInfo.innerHTML += `
-            <div class="flex items-center">
-                <svg class="w-4 h-4 text-gray-400 mr-2" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/>
-                </svg>
-                <a href="${parsedData.linkedin}" target="_blank" class="text-blue-600 hover:underline">LinkedIn Profile</a>
-            </div>
-        `;
-    }
-    
-    if (parsedData.github) {
-        contactInfo.innerHTML += `
-            <div class="flex items-center">
-                <svg class="w-4 h-4 text-gray-400 mr-2" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
-                </svg>
-                <a href="${parsedData.github}" target="_blank" class="text-gray-700 hover:underline">GitHub Profile</a>
-            </div>
-        `;
+    if (contactInfo) {
+        contactInfo.innerHTML = '';
+        
+        if (parsedData.email) {
+            contactInfo.innerHTML += `
+                <div class="flex items-center">
+                    <svg class="w-4 h-4 text-gray-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
+                    </svg>
+                    <span class="text-gray-700">${parsedData.email}</span>
+                </div>
+            `;
+        }
+        
+        if (parsedData.mobile) {
+            contactInfo.innerHTML += `
+                <div class="flex items-center">
+                    <svg class="w-4 h-4 text-gray-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"></path>
+                    </svg>
+                    <span class="text-gray-700">${parsedData.mobile}</span>
+                </div>
+            `;
+        }
+        
+        if (parsedData.linkedin) {
+            contactInfo.innerHTML += `
+                <div class="flex items-center">
+                    <svg class="w-4 h-4 text-gray-400 mr-2" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/>
+                    </svg>
+                    <a href="${parsedData.linkedin}" target="_blank" class="text-blue-600 hover:underline">LinkedIn Profile</a>
+                </div>
+            `;
+        }
+        
+        if (parsedData.github) {
+            contactInfo.innerHTML += `
+                <div class="flex items-center">
+                    <svg class="w-4 h-4 text-gray-400 mr-2" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+                    </svg>
+                    <a href="${parsedData.github}" target="_blank" class="text-gray-700 hover:underline">GitHub Profile</a>
+                </div>
+            `;
+        }
     }
 
     // Update skills
-    skillsList.innerHTML = '';
-    if (parsedData.skills && parsedData.skills.length > 0) {
-        parsedData.skills.forEach(skill => {
-            skillsList.innerHTML += `
-                <span class="px-3 py-1 bg-blue-100 text-blue-800 text-sm rounded-full">${skill}</span>
-            `;
-        });
-    } else {
-        skillsList.innerHTML = '<p class="text-gray-500 text-sm">No skills detected</p>';
+    if (skillsList) {
+        skillsList.innerHTML = '';
+        if (parsedData.skills && parsedData.skills.length > 0) {
+            parsedData.skills.forEach(skill => {
+                skillsList.innerHTML += `
+                    <span class="px-3 py-1 bg-blue-100 text-blue-800 text-sm rounded-full">${skill}</span>
+                `;
+            });
+        } else {
+            skillsList.innerHTML = '<p class="text-gray-500 text-sm">No skills detected</p>';
+        }
+    }
+    
+    // Update resume preview
+    const resumePreview = document.getElementById('resume-preview');
+    if (resumePreview && parsedData.original_text) {
+        resumePreview.innerHTML = `
+            <div class="text-sm text-gray-800 leading-relaxed whitespace-pre-wrap">
+                ${parsedData.original_text}
+            </div>
+        `;
     }
 }
 
 // Error Handling
-function showError(message) {
-    // Create error notification with better styling and close button
-    const errorDiv = document.createElement('div');
-    errorDiv.className = 'fixed top-4 right-4 bg-red-500 text-white px-6 py-4 rounded-lg shadow-lg z-50 max-w-md';
-    
-    errorDiv.innerHTML = `
-        <div class="flex items-start">
-            <div class="flex-shrink-0">
-                <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
-                </svg>
-            </div>
-            <div class="ml-3 flex-1">
-                <p class="text-sm font-medium">${message}</p>
-            </div>
-            <div class="ml-3 flex-shrink-0">
-                <button onclick="this.closest('.fixed').remove()" class="text-white hover:text-gray-200">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                    </svg>
-                </button>
-            </div>
-        </div>
-    `;
-    
-    document.body.appendChild(errorDiv);
-    
-    // Remove after 8 seconds (longer for production)
-    setTimeout(() => {
-        if (errorDiv.parentNode) {
-            errorDiv.remove();
-        }
-    }, 8000);
-}
-
-// Show error message
 function showError(message) {
     const errorDiv = document.createElement('div');
     errorDiv.className = 'fixed top-4 right-4 bg-red-500 text-white px-6 py-4 rounded-lg shadow-lg z-50 max-w-md';
@@ -1536,3 +1603,7 @@ window.testConnection = testConnection;
 window.runDiagnostics = runDiagnostics;
 window.showUploadModal = showUploadModal;
 window.hideUploadModal = hideUploadModal;
+window.showHomePage = showHomePage;
+window.showAnalysisPage = showAnalysisPage;
+window.handleOptimizeClick = handleOptimizeClick;
+window.checkData = checkData;
