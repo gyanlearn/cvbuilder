@@ -3,290 +3,228 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CV Parser & ATS Scorer</title>
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <link rel="stylesheet" href="assets/tailwind.css" onerror="(function(){var s=document.createElement('script');s.src='https://cdn.tailwindcss.com';document.head.appendChild(s)})()" />
-    <script>
-      // Enhanced fallback: ensure Tailwind CSS loads
-      (function(){
-        // Check if Tailwind is loaded by testing a utility class
-        var test = document.createElement('div');
-        test.className = 'hidden';
-        document.head.appendChild(test);
-        var isTailwindLoaded = (getComputedStyle(test).display === 'none');
-        test.remove();
-        
-        // If Tailwind is not loaded, inject CDN version
-        if(!isTailwindLoaded){
-          console.log('Tailwind CSS not loaded, injecting CDN version');
-          var s = document.createElement('script');
-          s.src = 'https://cdn.tailwindcss.com';
-          s.onload = function() {
-            console.log('Tailwind CSS CDN loaded successfully');
-          };
-          s.onerror = function() {
-            console.error('Failed to load Tailwind CSS CDN');
-          };
-          document.head.appendChild(s);
-        } else {
-          console.log('Tailwind CSS already loaded');
-        }
-      })();
-    </script>
+    <title>CV Parser & ATS Scorer - Professional Analysis Tool</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
     <style>
-        .drop-zone {
-            transition: all 0.3s ease;
+        .score-circle {
+            background: conic-gradient(from 0deg, #f97316 0deg, #f97316 calc(var(--score) * 3.6deg), #e5e7eb calc(var(--score) * 3.6deg), #e5e7eb 360deg);
         }
-        .drop-zone.dragover {
-            border-color: #3B82F6;
-            background-color: #EFF6FF;
-        }
-        .score-gauge {
-            background: conic-gradient(from 0deg, #EF4444 0deg, #F59E0B 72deg, #10B981 144deg, #3B82F6 216deg, #8B5CF6 288deg, #EF4444 360deg);
-        }
-        .loading-spinner {
-            animation: spin 1s linear infinite;
-        }
-        @keyframes spin {
-            from { transform: rotate(0deg); }
-            to { transform: rotate(360deg); }
+        .score-circle::before {
+            content: '';
+            position: absolute;
+            inset: 8px;
+            background: white;
+            border-radius: 50%;
         }
     </style>
 </head>
-<body class="bg-gray-50 min-h-screen">
+<body class="bg-gray-50 font-sans">
     <!-- Header -->
     <header class="bg-white shadow-sm border-b">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex justify-between items-center py-4">
+            <div class="flex justify-between items-center h-16">
                 <div class="flex items-center">
-                    <div class="w-8 h-8 bg-primary rounded-lg flex items-center justify-center mr-3">
-                        <svg width="20" height="20" class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-                        </svg>
-                    </div>
                     <h1 class="text-xl font-bold text-gray-900">CV Parser & ATS Scorer</h1>
+                    <div id="status-indicator" class="ml-4"></div>
                 </div>
-                <div class="text-sm text-gray-500">
-                    Powered by AI
+                <div class="flex items-center space-x-4">
+                    <button onclick="runDiagnostics()" class="text-sm text-gray-500 hover:text-gray-700">
+                        🔧 Diagnostics
+                    </button>
                 </div>
             </div>
         </div>
     </header>
 
     <!-- Main Content -->
-    <main class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <!-- Upload Section -->
-        <div id="upload-section" class="bg-white rounded-lg shadow-sm border p-6 mb-8">
-            <div class="text-center mb-6">
-                <h2 class="text-2xl font-bold text-gray-900 mb-2">Upload Your Resume</h2>
-                <p class="text-gray-600">Get instant ATS scoring and optimization suggestions</p>
-            </div>
-
-            <!-- Industry Selector -->
-            <div class="mb-4">
-                <label for="industry-select" class="block text-sm font-medium text-gray-700 mb-1">Target Industry</label>
-                <select id="industry-select" class="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
-                    <option value="technology">Technology</option>
-                    <option value="marketing">Marketing</option>
-                    <option value="finance">Finance</option>
-                    <option value="product">Product</option>
-                    <option value="healthcare">Healthcare</option>
-                    <option value="sales">Sales</option>
-                    <option value="hr">HR</option>
-                    <option value="operations">Operations</option>
-                    <option value="design">Design</option>
-                </select>
-            </div>
-
-            <!-- File Upload Area -->
-            <div id="drop-zone" class="drop-zone border-2 border-dashed border-gray-300 rounded-lg p-8 text-center cursor-pointer hover:border-primary hover:bg-gray-50 transition-colors">
-                <div class="space-y-4">
-                    <div class="mx-auto w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center">
-                        <svg width="32" height="32" class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
-                        </svg>
-                    </div>
-                    <div>
-                        <p class="text-lg font-medium text-gray-900">Drop your resume here</p>
-                        <p class="text-sm text-gray-500">or click to browse</p>
-                    </div>
-                    <div class="text-xs text-gray-400">
-                        Supports PDF, DOCX, and TXT files (max 10MB)
+    <div class="flex h-screen bg-gray-50">
+        <!-- Left Panel - ATS Score & Navigation -->
+        <div class="w-80 bg-white shadow-sm border-r">
+            <!-- ATS Score Section -->
+            <div class="p-6 border-b">
+                <div class="relative w-32 h-32 mx-auto mb-4">
+                    <div id="ats-score-circle" class="score-circle w-full h-full rounded-full flex items-center justify-center relative" style="--score: 0">
+                        <div class="text-center">
+                            <div id="ats-score-value" class="text-3xl font-bold text-gray-900">--</div>
+                            <div class="text-sm text-gray-600">OVERALL</div>
+                        </div>
                     </div>
                 </div>
-                <input type="file" id="file-input" class="hidden" accept=".pdf,.docx,.txt">
+                <div class="text-center">
+                    <button id="marked-done-btn" class="text-sm text-gray-500 hover:text-gray-700">
+                        0 MARKED AS DONE
+                    </button>
+                </div>
             </div>
 
-            <!-- Progress Bar -->
-            <div id="progress-container" class="hidden mt-6">
-                <div class="flex items-center justify-between mb-2">
-                    <span class="text-sm font-medium text-gray-700">Processing...</span>
-                    <span id="progress-text" class="text-sm text-gray-500">0%</span>
+            <!-- Navigation -->
+            <div class="p-4 border-b">
+                <button class="flex items-center text-gray-700 hover:text-gray-900 w-full">
+                    <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path>
+                    </svg>
+                    Home
+                </button>
+            </div>
+
+            <!-- Top Fixes Section -->
+            <div class="p-4 border-b">
+                <h3 class="text-sm font-semibold text-gray-900 mb-3">TOP FIXES</h3>
+                <div id="top-fixes-list" class="space-y-2">
+                    <!-- Dynamic content will be populated here -->
                 </div>
-                <div class="w-full bg-gray-200 rounded-full h-2">
-                    <div id="progress-bar" class="bg-primary h-2 rounded-full transition-all duration-300" style="width: 0%"></div>
+            </div>
+
+            <!-- Completed Section -->
+            <div class="p-4">
+                <h3 class="text-sm font-semibold text-gray-900 mb-3">COMPLETED</h3>
+                <div id="completed-list" class="space-y-2">
+                    <!-- Dynamic content will be populated here -->
                 </div>
             </div>
         </div>
 
-        <!-- Results Section -->
-        <div id="results-section" class="hidden space-y-6">
-            <!-- ATS Score Card -->
-            <div class="bg-white rounded-lg shadow-sm border p-6">
-                <div class="flex items-center justify-between mb-4">
-                    <h3 class="text-lg font-semibold text-gray-900">ATS Score</h3>
-                    <div id="score-badge" class="px-3 py-1 rounded-full text-sm font-medium"></div>
+        <!-- Middle Panel - Analysis Results -->
+        <div class="flex-1 bg-white">
+            <!-- Top Action Bar -->
+            <div class="border-b bg-gray-50 p-4">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center space-x-4">
+                        <button class="text-gray-400 hover:text-gray-600">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                            </svg>
+                        </button>
+                        <button class="text-gray-400 hover:text-gray-600">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                            </svg>
+                        </button>
+                        <div class="bg-yellow-50 border border-yellow-200 rounded-lg px-3 py-2 flex items-center">
+                            <svg class="w-5 h-5 text-yellow-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
+                            </svg>
+                            <span class="text-sm text-yellow-800">Review bullet points</span>
+                            <button class="ml-2 text-yellow-600 hover:text-yellow-800">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                                </svg>
+                            </button>
+                        </div>
+                        <span class="text-sm text-gray-600">Some bullet points may need review</span>
+                    </div>
+                    <div class="flex items-center space-x-3">
+                        <button class="text-sm text-gray-600 hover:text-gray-900">ALL</button>
+                        <button id="fix-resume-btn" class="bg-purple-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-purple-700">
+                            FIX →
+                        </button>
+                    </div>
                 </div>
                 
-                <div class="flex items-center justify-center mb-6">
-                    <div class="relative">
-                        <div id="score-gauge" class="w-32 h-32 rounded-full score-gauge flex items-center justify-center">
-                            <div class="w-24 h-24 bg-white rounded-full flex items-center justify-center">
-                                <span id="score-value" class="text-2xl font-bold text-gray-900">0</span>
-                            </div>
-                        </div>
-                        <div class="absolute inset-0 rounded-full score-gauge opacity-20"></div>
-                    </div>
-                </div>
-
-                <!-- Score Breakdown -->
-                <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
-                    <div id="contact-score" class="text-center p-3 bg-gray-50 rounded-lg">
-                        <div class="text-sm text-gray-600">Contact Info</div>
-                        <div class="text-lg font-semibold text-gray-900">0/15</div>
-                    </div>
-                    <div id="skills-score" class="text-center p-3 bg-gray-50 rounded-lg">
-                        <div class="text-sm text-gray-600">Skills</div>
-                        <div class="text-lg font-semibold text-gray-900">0/25</div>
-                    </div>
-                    <div id="education-score" class="text-center p-3 bg-gray-50 rounded-lg">
-                        <div class="text-sm text-gray-600">Education</div>
-                        <div class="text-lg font-semibold text-gray-900">0/10</div>
-                    </div>
-                    <div id="experience-score" class="text-center p-3 bg-gray-50 rounded-lg">
-                        <div class="text-sm text-gray-600">Experience</div>
-                        <div class="text-lg font-semibold text-gray-900">0/20</div>
-                    </div>
-                    <div id="structure-score" class="text-center p-3 bg-gray-50 rounded-lg">
-                        <div class="text-sm text-gray-600">Structure</div>
-                        <div class="text-lg font-semibold text-gray-900">0/15</div>
-                    </div>
-                    <div id="readability-score" class="text-center p-3 bg-gray-50 rounded-lg">
-                        <div class="text-sm text-gray-600">Readability</div>
-                        <div class="text-lg font-semibold text-gray-900">0/15</div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Advanced ATS Card -->
-            <div id="advanced-card" class="hidden bg-white rounded-lg shadow-sm border p-6">
-                <div class="flex items-center justify-between mb-4">
-                    <h3 class="text-lg font-semibold text-gray-900">Advanced ATS Analysis</h3>
-                    <div id="advanced-score-badge" class="px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-800">--</div>
-                </div>
-                <div class="grid grid-cols-2 md:grid-cols-3 gap-4 mb-4">
-                    <div class="p-3 bg-gray-50 rounded-lg text-center">
-                        <div class="text-sm text-gray-600">Advanced Score</div>
-                        <div id="advanced-score" class="text-xl font-semibold text-gray-900">--</div>
-                    </div>
-                    <div class="p-3 bg-gray-50 rounded-lg text-center">
-                        <div class="text-sm text-gray-600">General Keywords</div>
-                        <div id="adv-gen-pct" class="text-lg font-semibold text-gray-900">--%</div>
-                    </div>
-                    <div class="p-3 bg-gray-50 rounded-lg text-center">
-                        <div class="text-sm text-gray-600">Industry Keywords</div>
-                        <div id="adv-ind-pct" class="text-lg font-semibold text-gray-900">--%</div>
-                    </div>
-                    <div class="p-3 bg-gray-50 rounded-lg text-center">
-                        <div class="text-sm text-gray-600">Action Verbs</div>
-                        <div id="adv-action-count" class="text-lg font-semibold text-gray-900">--</div>
-                    </div>
-                    <div class="p-3 bg-gray-50 rounded-lg text-center">
-                        <div class="text-sm text-gray-600">Quantification</div>
-                        <div id="adv-quant-count" class="text-lg font-semibold text-gray-900">--</div>
-                    </div>
-                    <div class="p-3 bg-gray-50 rounded-lg text-center">
-                        <div class="text-sm text-gray-600">Grammar / Weak</div>
-                        <div class="text-lg font-semibold text-gray-900"><span id="adv-grammar-count">--</span> / <span id="adv-weak-count">--</span></div>
-                    </div>
-                </div>
-
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                        <h4 class="font-medium text-gray-900 mb-2">Top Missing General Keywords</h4>
-                        <div id="adv-missing-general" class="flex flex-wrap gap-2"></div>
-                    </div>
-                    <div>
-                        <h4 class="font-medium text-gray-900 mb-2">Top Missing Industry Keywords</h4>
-                        <div id="adv-missing-industry" class="flex flex-wrap gap-2"></div>
-                    </div>
-                </div>
-
-                <div class="mt-6">
-                    <h4 class="font-medium text-gray-900 mb-2">Issues & Suggestions</h4>
-                    <div id="adv-issues-list" class="space-y-3"></div>
-                </div>
-            </div>
-
-            <!-- Issues Card -->
-            <div id="issues-card" class="bg-white rounded-lg shadow-sm border p-6">
-                <h3 class="text-lg font-semibold text-gray-900 mb-4">Issues Found</h3>
-                <div id="issues-list" class="space-y-3">
-                    <!-- Issues will be populated here -->
-                </div>
-            </div>
-
-            <!-- Parsed Data Card -->
-            <div id="parsed-data-card" class="bg-white rounded-lg shadow-sm border p-6">
-                <h3 class="text-lg font-semibold text-gray-900 mb-4">Parsed Information</h3>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                        <h4 class="font-medium text-gray-900 mb-3">Contact Information</h4>
-                        <div id="contact-info" class="space-y-2 text-sm">
-                            <!-- Contact info will be populated here -->
-                        </div>
-                    </div>
-                    <div>
-                        <h4 class="font-medium text-gray-900 mb-3">Skills</h4>
-                        <div id="skills-list" class="flex flex-wrap gap-2">
-                            <!-- Skills will be populated here -->
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- CTA Card -->
-            <div class="bg-gradient-to-r from-primary to-blue-600 rounded-lg p-6 text-white text-center">
-                <h3 class="text-xl font-bold mb-2">Ready to optimize your resume?</h3>
-                <p class="text-blue-100 mb-4">Get AI-powered suggestions to improve your ATS score</p>
-                <!-- Optimize Button -->
-                <div class="text-center">
-                    <button id="optimize-btn" class="bg-white text-primary px-6 py-3 rounded-lg font-semibold hover:bg-gray-50 transition-colors">
-                        Fix my resume with AI
+                <!-- Show More Button -->
+                <div class="text-center mt-4">
+                    <button id="show-more-btn" class="bg-purple-600 text-white px-6 py-2 rounded-lg text-sm font-medium hover:bg-purple-700">
+                        SHOW MORE +
                     </button>
+                </div>
+            </div>
+
+            <!-- Analysis Content -->
+            <div class="p-6">
+                <!-- What You Did Well Section -->
+                <div class="mb-8">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-4">What you did well</h2>
+                    <p class="text-gray-600 mb-6">We ran 20+ checks on your resume. Here's a rundown of three key areas you did well in - well done.</p>
                     
-                    <!-- Test button for debugging -->
-                    <button id="test-optimize-btn" class="ml-4 bg-purple-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-purple-700 transition-colors">
-                        🧪 Test AI Improvement
-                    </button>
-                    
-                    <!-- Data check button -->
-                    <button id="check-data-btn" class="ml-4 bg-yellow-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-yellow-700 transition-colors">
-                        📊 Check Data
-                    </button>
+                    <div id="positive-feedback" class="space-y-4">
+                        <!-- Dynamic positive feedback will be populated here -->
+                    </div>
+                </div>
+
+                <!-- Areas for Improvement -->
+                <div class="mb-8">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-4">Areas for improvement</h2>
+                    <div id="improvement-areas" class="space-y-4">
+                        <!-- Dynamic improvement areas will be populated here -->
+                    </div>
+                </div>
+
+                <!-- Detailed Issues -->
+                <div id="detailed-issues" class="space-y-6">
+                    <!-- Dynamic detailed issues will be populated here -->
                 </div>
             </div>
         </div>
-    </main>
 
-    <!-- Footer -->
-    <footer class="bg-white border-t mt-12">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-            <div class="text-center text-sm text-gray-500">
-                <p>&copy; 2024 CV Parser & ATS Scorer. Powered by AI technology.</p>
+        <!-- Right Panel - Resume Preview -->
+        <div class="w-96 bg-white shadow-sm border-l">
+            <div class="p-4 border-b">
+                <h3 class="text-sm font-semibold text-gray-900">LINE ANALYSIS</h3>
+            </div>
+            
+            <div class="p-4">
+                <div id="resume-preview" class="text-sm text-gray-800 leading-relaxed">
+                    <!-- Resume content will be populated here -->
+                    <p class="text-gray-500">Upload a resume to see the preview here...</p>
+                </div>
             </div>
         </div>
-    </footer>
+    </div>
+
+    <!-- File Upload Modal -->
+    <div id="upload-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50">
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="bg-white rounded-lg max-w-md w-full">
+                <div class="p-6">
+                    <h2 class="text-xl font-bold text-gray-800 mb-4">Upload Your Resume</h2>
+                    
+                    <!-- Industry Selection -->
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Target Industry</label>
+                        <select id="industry-select" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="technology">Technology</option>
+                            <option value="marketing">Marketing</option>
+                            <option value="finance">Finance</option>
+                            <option value="healthcare">Healthcare</option>
+                            <option value="education">Education</option>
+                            <option value="sales">Sales</option>
+                            <option value="hr">Human Resources</option>
+                            <option value="operations">Operations</option>
+                            <option value="design">Design</option>
+                            <option value="consulting">Consulting</option>
+                        </select>
+                    </div>
+                    
+                    <!-- File Upload Area -->
+                    <div id="drop-zone" class="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-gray-400 transition-colors cursor-pointer">
+                        <svg class="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48">
+                            <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                        </svg>
+                        <p class="mt-2 text-sm text-gray-600">Drag and drop your resume here, or <span class="text-blue-600 hover:text-blue-500">browse</span></p>
+                        <p class="mt-1 text-xs text-gray-500">PDF, DOCX, or TXT up to 10MB</p>
+                    </div>
+                    
+                    <input type="file" id="file-input" class="hidden" accept=".pdf,.docx,.txt">
+                    
+                    <!-- Progress Bar -->
+                    <div id="progress-container" class="hidden mt-4">
+                        <div class="w-full bg-gray-200 rounded-full h-2">
+                            <div id="progress-bar" class="bg-blue-600 h-2 rounded-full transition-all duration-300" style="width: 0%"></div>
+                        </div>
+                        <p id="progress-text" class="text-sm text-gray-600 mt-2">Processing...</p>
+                    </div>
+                    
+                    <!-- Action Buttons -->
+                    <div class="flex justify-end space-x-3 mt-6">
+                        <button onclick="hideUploadModal()" class="px-4 py-2 text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50">
+                            Cancel
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <!-- CV Improvement Modal -->
     <div id="cv-improvement-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50">
@@ -361,6 +299,54 @@
                     </div>
                 </div>
             </div>
+        </div>
+    </div>
+
+    <!-- Improvement Progress Modal -->
+    <div id="improvement-progress-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50">
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="bg-white rounded-lg max-w-md w-full p-6 text-center">
+                <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                <h3 class="text-lg font-medium text-gray-900 mb-2">Improving Your Resume</h3>
+                <p class="text-gray-600">AI is analyzing and optimizing your CV. This may take a few moments...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Improvement Results Modal -->
+    <div id="improvement-results-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50">
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+                <div class="p-6">
+                    <div class="flex justify-between items-center mb-6">
+                        <h2 class="text-2xl font-bold text-gray-800">Resume Improvement Complete!</h2>
+                        <button onclick="hideImprovementResults()" class="text-gray-500 hover:text-gray-700">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                            </svg>
+                        </button>
+                    </div>
+                    
+                    <div id="improvement-results-content">
+                        <!-- Dynamic content will be populated here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Error Notification -->
+    <div id="error-notification" class="fixed top-4 right-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded hidden z-50">
+        <div class="flex items-center">
+            <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path>
+            </svg>
+            <span id="error-message"></span>
+            <button onclick="hideError()" class="ml-4 text-red-700 hover:text-red-900">
+                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+                </svg>
+            </button>
         </div>
     </div>
 

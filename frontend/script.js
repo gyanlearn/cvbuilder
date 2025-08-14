@@ -862,7 +862,7 @@ function showCVImprovementInterface() {
     loadCVTemplates();
     
     // Update current ATS score
-    const currentScore = window.currentResults?.advanced_report?.ats_score || 0;
+    const currentScore = window.currentResults?.ats_score || 0;
     document.getElementById('current-ats-score').textContent = currentScore;
     
     // Update issues summary
@@ -872,6 +872,10 @@ function showCVImprovementInterface() {
     document.getElementById('cv-improvement-modal').classList.remove('hidden');
     
     console.log('✅ CV improvement interface shown');
+}
+
+function hideCVImprovementInterface() {
+    document.getElementById('cv-improvement-modal').classList.add('hidden');
 }
 
 // Load available CV templates
@@ -996,7 +1000,7 @@ async function startCVImprovement() {
             original_cv_text: window.originalCVText,
             ats_feedback: window.currentResults.advanced_report,
             industry: industry,
-            original_score: window.currentResults.advanced_report.ats_score,
+            original_score: window.currentResults.ats_score,
             template_id: templateId
         };
         
@@ -1033,252 +1037,94 @@ async function startCVImprovement() {
     }
 }
 
-// Helper functions for strategy display
-function getStrategyColor(strategy) {
-    switch (strategy) {
-        case 'minor_fix':
-            return 'bg-green-100 text-green-800';
-        case 'major_overhaul':
-            return 'bg-red-100 text-red-800';
-        case 'hybrid':
-            return 'bg-yellow-100 text-yellow-800';
-        default:
-            return 'bg-gray-100 text-gray-800';
-    }
+function showImprovementProgress() {
+    document.getElementById('improvement-progress-modal').classList.remove('hidden');
 }
 
-function getStrategyName(strategy) {
-    switch (strategy) {
-        case 'minor_fix':
-            return 'Minor Fix';
-        case 'major_overhaul':
-            return 'Major Overhaul';
-        case 'hybrid':
-            return 'Hybrid Approach';
-        default:
-            return 'Unknown';
-    }
+function hideImprovementProgress() {
+    document.getElementById('improvement-progress-modal').classList.add('hidden');
 }
 
-function getStrategyDescription(strategy) {
-    switch (strategy) {
-        case 'minor_fix':
-            return 'Preserved structure and style, fixed ATS issues only';
-        case 'major_overhaul':
-            return 'Complete rewrite with modern ATS-friendly template';
-        case 'hybrid':
-            return 'Improved structure while maintaining original style';
-        default:
-            return 'Standard optimization';
-    }
-}
-
-// Helper functions for base64 PDF handling
-function previewPDFFromBase64(base64Data) {
-    try {
-        // Convert base64 to blob
-        const byteCharacters = atob(base64Data);
-        const byteNumbers = new Array(byteCharacters.length);
-        for (let i = 0; i < byteCharacters.length; i++) {
-            byteNumbers[i] = byteCharacters.charCodeAt(i);
-        }
-        const byteArray = new Uint8Array(byteNumbers);
-        const blob = new Blob([byteArray], { type: 'application/pdf' });
-        
-        // Create object URL and open in new tab
-        const url = URL.createObjectURL(blob);
-        window.open(url, '_blank');
-        
-        // Clean up object URL after a delay
-        setTimeout(() => URL.revokeObjectURL(url), 1000);
-    } catch (error) {
-        console.error('Error previewing PDF:', error);
-        alert('Error previewing PDF. Please try downloading instead.');
-    }
-}
-
-function downloadPDFFromBase64(base64Data, filename) {
-    try {
-        // Convert base64 to blob
-        const byteCharacters = atob(base64Data);
-        const byteNumbers = new Array(byteCharacters.length);
-        for (let i = 0; i < byteCharacters.length; i++) {
-            byteNumbers[i] = byteCharacters.charCodeAt(i);
-        }
-        const byteArray = new Uint8Array(byteNumbers);
-        const blob = new Blob([byteArray], { type: 'application/pdf' });
-        
-        // Create download link
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = filename;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        
-        // Clean up object URL
-        setTimeout(() => URL.revokeObjectURL(url), 1000);
-    } catch (error) {
-        console.error('Error downloading PDF:', error);
-        alert('Error downloading PDF. Please try again.');
-    }
-}
-
-// Show improvement results
 function showImprovementResults(result) {
-    const modal = document.createElement('div');
-    modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
+    const content = document.getElementById('improvement-results-content');
+    if (!content) return;
     
-    modal.innerHTML = `
-        <div class="bg-white rounded-lg p-6 max-w-4xl mx-4 max-h-[90vh] overflow-y-auto">
-            <div class="flex items-center justify-between mb-4">
-                <h3 class="text-xl font-semibold text-gray-900">CV Improvement Complete! 🎉</h3>
-                <button onclick="this.closest('.fixed').remove()" class="text-gray-400 hover:text-gray-600">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                    </svg>
-                </button>
+    content.innerHTML = `
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+            <div class="text-center">
+                <h3 class="text-lg font-medium text-gray-900 mb-2">Original Score</h3>
+                <div class="text-3xl font-bold text-gray-600">${result.original_score}</div>
             </div>
-            
-            <div class="space-y-6">
-                <!-- Score Improvement -->
-                <div class="bg-gradient-to-r from-blue-50 to-green-50 p-4 rounded-lg">
-                    <div class="flex items-center justify-between">
-                        <div>
-                            <h4 class="font-medium text-gray-900">Score Improvement</h4>
-                            <p class="text-sm text-gray-600">Your CV has been optimized for ATS systems</p>
-                        </div>
-                        <div class="text-right">
-                            <div class="text-2xl font-bold text-gray-900">${result.original_score} → ${result.new_score}</div>
-                            <div class="text-sm text-green-600">+${result.new_score - result.original_score} points</div>
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- Strategy Used -->
-                <div class="bg-gray-50 p-4 rounded-lg">
-                    <h4 class="font-medium text-gray-900 mb-2">Improvement Strategy</h4>
-                    <div class="flex items-center">
-                        <span class="px-3 py-1 rounded-full text-sm font-medium ${getStrategyColor(result.improvement_strategy)}">
-                            ${getStrategyName(result.improvement_strategy)}
-                        </span>
-                        <p class="ml-3 text-sm text-gray-600">${getStrategyDescription(result.improvement_strategy)}</p>
-                    </div>
-                </div>
-                
-                <!-- Changes Made -->
-                <div class="bg-gray-50 p-4 rounded-lg">
-                    <h4 class="font-medium text-gray-900 mb-2">Changes Made</h4>
-                    <ul class="space-y-1">
-                        ${result.changes_made.map(change => `<li class="text-sm text-gray-600">• ${change}</li>`).join('')}
-                    </ul>
-                </div>
-                
-                <!-- ATS Feedback Summary -->
-                <div class="bg-gray-50 p-4 rounded-lg">
-                    <h4 class="font-medium text-gray-900 mb-2">ATS Issues Addressed</h4>
-                    <div class="grid grid-cols-2 gap-4 text-sm">
-                        <div>
-                            <span class="font-medium">Total Issues:</span>
-                            <span class="text-gray-600">${result.ats_feedback_summary.issues_count}</span>
-                        </div>
-                        <div>
-                            <span class="font-medium">Missing Keywords:</span>
-                            <span class="text-gray-600">${result.ats_feedback_summary.missing_keywords}</span>
-                        </div>
-                        <div>
-                            <span class="font-medium">Grammar Issues:</span>
-                            <span class="text-gray-600">${result.ats_feedback_summary.grammar_issues}</span>
-                        </div>
-                        <div>
-                            <span class="font-medium">Spelling Issues:</span>
-                            <span class="text-gray-600">${result.ats_feedback_summary.spelling_issues}</span>
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- Download Section -->
-                <div class="bg-blue-50 p-4 rounded-lg">
-                    <h4 class="font-medium text-gray-900 mb-3">Download Your Improved CV</h4>
-                    ${result.pdf_download_url ? 
-                        `<div class="space-y-3">
-                            <p class="text-sm text-gray-600">Your CV has been optimized and converted to a professional PDF format.</p>
-                            <div class="flex space-x-3">
-                                <a href="${result.pdf_download_url}" target="_blank" class="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors">
-                                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
-                                    </svg>
-                                    Preview PDF
-                                </a>
-                                <a href="${result.pdf_download_url}" download="improved_cv.pdf" class="inline-flex items-center px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition-colors">
-                                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-                                    </svg>
-                                    Download PDF
-                                </a>
-                            </div>
-                        </div>` :
-                        result.pdf_data_base64 ?
-                        `<div class="space-y-3">
-                            <p class="text-sm text-gray-600">Your CV has been optimized and converted to a professional PDF format.</p>
-                            <p class="text-xs text-amber-600 bg-amber-50 p-2 rounded">Note: Using direct download (Supabase upload unavailable)</p>
-                            <div class="flex space-x-3">
-                                <button onclick="previewPDFFromBase64('${result.pdf_data_base64}')" class="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors">
-                                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542 7z"></path>
-                                    </svg>
-                                    Preview PDF
-                                </button>
-                                <button onclick="downloadPDFFromBase64('${result.pdf_data_base64}', 'improved_cv.pdf')" class="inline-flex items-center px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition-colors">
-                                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-                                    </svg>
-                                    Download PDF
-                                </button>
-                            </div>
-                        </div>` :
-                        `<div class="text-center py-4">
-                            <div class="text-red-500 mb-2">
-                                <svg class="w-12 h-12 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
-                                </svg>
-                            </div>
-                            <p class="text-sm text-gray-600">PDF generation failed. Please try again or contact support.</p>
-                        </div>`
-                    }
-                </div>
-                
-                <!-- Improved CV Text Preview -->
-                <div class="bg-gray-50 p-4 rounded-lg">
-                    <h4 class="font-medium text-gray-900 mb-2">Improved CV Preview</h4>
-                    <div class="bg-white p-3 rounded border max-h-40 overflow-y-auto">
-                        <pre class="text-xs text-gray-700 whitespace-pre-wrap">${result.improved_cv_text.substring(0, 500)}${result.improved_cv_text.length > 500 ? '...' : ''}</pre>
-                    </div>
-                    <p class="text-xs text-gray-500 mt-2">Showing first 500 characters. Full text is available in the downloaded PDF.</p>
-                </div>
+            <div class="text-center">
+                <h3 class="text-lg font-medium text-gray-900 mb-2">New Score</h3>
+                <div class="text-3xl font-bold text-green-600">${result.new_score}</div>
             </div>
-            
-            <div class="mt-6 flex justify-end space-x-3">
-                <button onclick="this.closest('.fixed').remove()" class="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700">
-                    Close
-                </button>
-                ${result.pdf_download_url ? 
-                    `<a href="${result.pdf_download_url}" download="improved_cv.pdf" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">
-                        Download PDF
-                    </a>` : 
-                    result.pdf_data_base64 ?
-                    `<button onclick="downloadPDFFromBase64('${result.pdf_data_base64}', 'improved_cv.pdf')" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">
-                        Download PDF
-                    </button>` : ''
-                }
+        </div>
+        
+        <div class="mb-6">
+            <h3 class="text-lg font-medium text-gray-900 mb-2">Improvement Strategy</h3>
+            <p class="text-gray-600">${result.improvement_strategy}</p>
+        </div>
+        
+        <div class="mb-6">
+            <h3 class="text-lg font-medium text-gray-900 mb-2">Changes Made</h3>
+            <ul class="list-disc list-inside text-gray-600 space-y-1">
+                ${result.changes_made.map(change => `<li>${change}</li>`).join('')}
+            </ul>
+        </div>
+        
+        <div class="mb-6">
+            <h3 class="text-lg font-medium text-gray-900 mb-2">Improved CV Preview</h3>
+            <div class="bg-gray-50 p-4 rounded-lg max-h-40 overflow-y-auto">
+                <p class="text-sm text-gray-700">${result.improved_cv_text.substring(0, 500)}...</p>
             </div>
+        </div>
+        
+        <div class="flex justify-end space-x-3">
+            <button onclick="hideImprovementResults()" class="px-4 py-2 text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50">
+                Close
+            </button>
+            ${result.pdf_download_url ? 
+                `<a href="${result.pdf_download_url}" target="_blank" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">
+                    Download PDF
+                </a>` : 
+                `<button onclick="downloadPDFFromBase64('${result.pdf_data_base64}')" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">
+                    Download PDF
+                </a>`
+            }
         </div>
     `;
     
-    document.body.appendChild(modal);
+    document.getElementById('improvement-results-modal').classList.remove('hidden');
+}
+
+function hideImprovementResults() {
+    document.getElementById('improvement-results-modal').classList.add('hidden');
+}
+
+function downloadPDFFromBase64(base64Data) {
+    try {
+        const binaryString = atob(base64Data);
+        const bytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+            bytes[i] = binaryString.charCodeAt(i);
+        }
+        
+        const blob = new Blob([bytes], { type: 'application/pdf' });
+        const url = URL.createObjectURL(blob);
+        
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'improved_cv.pdf';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        
+    } catch (error) {
+        console.error('Error downloading PDF:', error);
+        showError('Failed to download PDF');
+    }
 }
 
 // Show improvement progress
@@ -1684,3 +1530,9 @@ try {
 } catch (error) {
     console.error('❌ Error testing functions:', error);
 }
+
+// Make functions globally available for testing
+window.testConnection = testConnection;
+window.runDiagnostics = runDiagnostics;
+window.showUploadModal = showUploadModal;
+window.hideUploadModal = hideUploadModal;

@@ -80,39 +80,71 @@ class CVTemplateEngine:
                                            improvement_strategy: str) -> Optional[str]:
         """Create modern professional CV template"""
         try:
+            logger.info("Creating modern professional template...")
+            logger.info(f"CV data keys: {list(cv_data.keys())}")
+            logger.info(f"CV data sample: {str(cv_data)[:200]}...")
+            
             # Create PDF
             doc = fitz.open()
             page = doc.new_page(width=595, height=842)  # A4
+            logger.info("PDF document and page created")
             
             # Header Section
+            logger.info("Adding header section...")
             self._add_modern_header(page, cv_data)
+            logger.info("Header section added")
             
             # Professional Summary
             if cv_data.get('summary'):
+                logger.info(f"Adding summary section (length: {len(cv_data['summary'])})")
                 self._add_modern_summary(page, cv_data['summary'])
+                logger.info("Summary section added")
+            else:
+                logger.warning("No summary found in CV data")
             
             # Core Skills
             if cv_data.get('skills'):
+                logger.info(f"Adding skills section ({len(cv_data['skills'])} skills)")
                 self._add_modern_skills(page, cv_data['skills'])
+                logger.info("Skills section added")
+            else:
+                logger.warning("No skills found in CV data")
             
             # Professional Experience
             if cv_data.get('experience'):
+                logger.info(f"Adding experience section ({len(cv_data['experience'])} experiences)")
                 self._add_modern_experience(page, cv_data['experience'])
+                logger.info("Experience section added")
+            else:
+                logger.warning("No experience found in CV data")
             
             # Education
             if cv_data.get('education'):
+                logger.info(f"Adding education section ({len(cv_data['education'])} entries)")
                 self._add_modern_education(page, cv_data['education'])
+                logger.info("Education section added")
+            else:
+                logger.warning("No education found in CV data")
             
             # Certifications
             if cv_data.get('certifications'):
+                logger.info(f"Adding certifications section ({len(cv_data['certifications'])} certifications)")
                 self._add_modern_certifications(page, cv_data['certifications'])
+                logger.info("Certifications section added")
+            else:
+                logger.warning("No certifications found in CV data")
             
             # Save PDF
+            logger.info("Saving PDF...")
             pdf_path = self._save_template_pdf(doc, 'modern_professional')
+            logger.info(f"PDF saved to: {pdf_path}")
+            
             return pdf_path
             
         except Exception as e:
             logger.error(f"Error creating modern professional template: {e}")
+            import traceback
+            logger.error(f"Traceback: {traceback.format_exc()}")
             return None
     
     def _create_creative_professional_template(self, cv_data: Dict[str, Any], 
@@ -563,6 +595,139 @@ class CVTemplateEngine:
         except Exception as e:
             logger.error(f"Error adding creative summary: {e}")
     
+    def _add_creative_skills(self, page, skills: List[str]):
+        """Add creative professional skills with visual grouping"""
+        try:
+            # Section header
+            page.insert_text(
+                point=(50, 250),
+                text="CORE SKILLS",
+                fontsize=18,
+                fontname="helv-b",
+                color=(0.2, 0.4, 0.8)
+            )
+            
+            # Skills in columns with bullet points
+            y_pos = 275
+            for i, skill in enumerate(skills[:20]):
+                if y_pos > 750:
+                    page = self._add_new_page_if_needed(page)
+                    y_pos = 50
+                
+                page.insert_text(
+                    point=(50, y_pos),
+                    text=f"• {skill}",
+                    fontsize=11,
+                    fontname="helv",
+                    color=(0.2, 0.2, 0.2)
+                )
+                y_pos += 15
+                
+        except Exception as e:
+            logger.error(f"Error adding creative skills: {e}")
+    
+    def _add_creative_experience(self, page, experience: List[Dict[str, Any]]):
+        """Add creative professional experience with timeline design"""
+        try:
+            # Section header
+            page.insert_text(
+                point=(50, 350),
+                text="PROFESSIONAL EXPERIENCE",
+                fontsize=18,
+                fontname="helv-b",
+                color=(0.2, 0.4, 0.8)
+            )
+            
+            y_pos = 375
+            for i, exp in enumerate(experience[:5]):
+                if y_pos > 750:
+                    page = self._add_new_page_if_needed(page)
+                    y_pos = 50
+                
+                # Job title
+                if exp.get('title'):
+                    page.insert_text(
+                        point=(50, y_pos),
+                        text=exp['title'],
+                        fontsize=13,
+                        fontname="helv-b",
+                        color=(0.1, 0.1, 0.1)
+                    )
+                    y_pos += 18
+                
+                # Company and duration
+                company_duration = f"{exp.get('company', '')} | {exp.get('duration', '')}"
+                if company_duration.strip() != '|':
+                    page.insert_text(
+                        point=(50, y_pos),
+                        text=company_duration,
+                        fontsize=11,
+                        fontname="helv",
+                        color=(0.4, 0.4, 0.4)
+                    )
+                    y_pos += 15
+                
+                # Description
+                if exp.get('description'):
+                    wrapped_desc = self._wrap_text(exp['description'], 450, 10)
+                    page.insert_text(
+                        point=(50, y_pos),
+                        text=wrapped_desc,
+                        fontsize=10,
+                        fontname="helv",
+                        color=(0.2, 0.2, 0.2)
+                    )
+                    y_pos += 25
+                
+                y_pos += 10
+                
+        except Exception as e:
+            logger.error(f"Error adding creative experience: {e}")
+    
+    def _add_creative_education(self, page, education: List[Dict[str, Any]]):
+        """Add creative professional education with modern layout"""
+        try:
+            # Section header
+            page.insert_text(
+                point=(50, 500),
+                text="EDUCATION",
+                fontsize=18,
+                fontname="helv-b",
+                color=(0.2, 0.4, 0.8)
+            )
+            
+            y_pos = 525
+            for edu in education[:3]:
+                if y_pos > 750:
+                    page = self._add_new_page_if_needed(page)
+                    y_pos = 50
+                
+                # Degree
+                if edu.get('degree'):
+                    page.insert_text(
+                        point=(50, y_pos),
+                        text=edu['degree'],
+                        fontsize=12,
+                        fontname="helv-b",
+                        color=(0.1, 0.1, 0.1)
+                    )
+                    y_pos += 15
+                
+                # Institution and year
+                institution_year = f"{edu.get('institution', '')} | {edu.get('year', '')}"
+                if institution_year.strip() != '|':
+                    page.insert_text(
+                        point=(50, y_pos),
+                        text=institution_year,
+                        fontsize=10,
+                        fontname="helv",
+                        color=(0.4, 0.4, 0.4)
+                    )
+                    y_pos += 20
+                
+        except Exception as e:
+            logger.error(f"Error adding creative education: {e}")
+    
     # ===== ACADEMIC/RESEARCH TEMPLATE STYLING =====
     
     def _add_academic_header(self, page, cv_data: Dict[str, Any]):
@@ -612,6 +777,163 @@ class CVTemplateEngine:
         except Exception as e:
             logger.error(f"Error adding academic header: {e}")
     
+    def _add_academic_summary(self, page, summary: str):
+        """Add academic/research summary"""
+        try:
+            # Section header
+            page.insert_text(
+                point=(50, 160),
+                text="RESEARCH SUMMARY",
+                fontsize=16,
+                fontname="helv-b",
+                color=(0, 0, 0)
+            )
+            
+            # Summary text
+            wrapped_text = self._wrap_text(summary, 450, 11)
+            page.insert_text(
+                point=(50, 185),
+                text=wrapped_text,
+                fontsize=11,
+                fontname="helv",
+                color=(0.2, 0.2, 0.2)
+            )
+            
+        except Exception as e:
+            logger.error(f"Error adding academic summary: {e}")
+    
+    def _add_academic_experience(self, page, experience: List[Dict[str, Any]]):
+        """Add academic/research experience"""
+        try:
+            # Section header
+            page.insert_text(
+                point=(50, 250),
+                text="RESEARCH EXPERIENCE",
+                fontsize=16,
+                fontname="helv-b",
+                color=(0, 0, 0)
+            )
+            
+            y_pos = 275
+            for exp in experience[:5]:
+                if y_pos > 750:
+                    page = self._add_new_page_if_needed(page)
+                    y_pos = 50
+                
+                # Position title
+                if exp.get('title'):
+                    page.insert_text(
+                        point=(50, y_pos),
+                        text=exp['title'],
+                        fontsize=13,
+                        fontname="helv-b",
+                        color=(0, 0, 0)
+                    )
+                    y_pos += 18
+                
+                # Institution and duration
+                institution_duration = f"{exp.get('company', '')} | {exp.get('duration', '')}"
+                if institution_duration.strip() != '|':
+                    page.insert_text(
+                        point=(50, y_pos),
+                        text=institution_duration,
+                        fontsize=11,
+                        fontname="helv",
+                        color=(0.4, 0.4, 0.4)
+                    )
+                    y_pos += 15
+                
+                # Description
+                if exp.get('description'):
+                    wrapped_desc = self._wrap_text(exp['description'], 450, 10)
+                    page.insert_text(
+                        point=(50, y_pos),
+                        text=wrapped_desc,
+                        fontsize=10,
+                        fontname="helv",
+                        color=(0.2, 0.2, 0.2)
+                    )
+                    y_pos += 25
+                
+                y_pos += 10
+                
+        except Exception as e:
+            logger.error(f"Error adding academic experience: {e}")
+    
+    def _add_academic_education(self, page, education: List[Dict[str, Any]]):
+        """Add academic/research education"""
+        try:
+            # Section header
+            page.insert_text(
+                point=(50, 400),
+                text="EDUCATION",
+                fontsize=16,
+                fontname="helv-b",
+                color=(0, 0, 0)
+            )
+            
+            y_pos = 425
+            for edu in education[:3]:
+                if y_pos > 750:
+                    page = self._add_new_page_if_needed(page)
+                    y_pos = 50
+                
+                # Degree
+                if edu.get('degree'):
+                    page.insert_text(
+                        point=(50, y_pos),
+                        text=edu['degree'],
+                        fontsize=12,
+                        fontname="helv-b",
+                        color=(0, 0, 0)
+                    )
+                    y_pos += 15
+                
+                # Institution and year
+                institution_year = f"{edu.get('institution', '')} | {edu.get('year', '')}"
+                if institution_year.strip() != '|':
+                    page.insert_text(
+                        point=(50, y_pos),
+                        text=institution_year,
+                        fontsize=10,
+                        fontname="helv",
+                        color=(0.4, 0.4, 0.4)
+                    )
+                    y_pos += 20
+                
+        except Exception as e:
+            logger.error(f"Error adding academic education: {e}")
+    
+    def _add_academic_publications(self, page, publications: List[str]):
+        """Add academic publications section"""
+        try:
+            # Section header
+            page.insert_text(
+                point=(50, 500),
+                text="PUBLICATIONS",
+                fontsize=16,
+                fontname="helv-b",
+                color=(0, 0, 0)
+            )
+            
+            y_pos = 525
+            for pub in publications[:10]:
+                if y_pos > 750:
+                    page = self._add_new_page_if_needed(page)
+                    y_pos = 50
+                
+                page.insert_text(
+                    point=(50, y_pos),
+                    text=f"• {pub}",
+                    fontsize=10,
+                    fontname="helv",
+                    color=(0.2, 0.2, 0.2)
+                )
+                y_pos += 15
+                
+        except Exception as e:
+            logger.error(f"Error adding academic publications: {e}")
+    
     # ===== EXECUTIVE/LEADERSHIP TEMPLATE STYLING =====
     
     def _add_executive_header(self, page, cv_data: Dict[str, Any]):
@@ -660,6 +982,177 @@ class CVTemplateEngine:
             
         except Exception as e:
             logger.error(f"Error adding executive header: {e}")
+    
+    def _add_executive_summary(self, page, summary: str):
+        """Add executive/leadership summary"""
+        try:
+            # Section header
+            page.insert_text(
+                point=(50, 130),
+                text="EXECUTIVE SUMMARY",
+                fontsize=18,
+                fontname="helv-b",
+                color=(0, 0, 0)
+            )
+            
+            # Summary text
+            wrapped_text = self._wrap_text(summary, 450, 11)
+            page.insert_text(
+                point=(50, 155),
+                text=wrapped_text,
+                fontsize=11,
+                fontname="helv",
+                color=(0.2, 0.2, 0.2)
+            )
+            
+        except Exception as e:
+            logger.error(f"Error adding executive summary: {e}")
+    
+    def _add_executive_experience(self, page, experience: List[Dict[str, Any]]):
+        """Add executive/leadership experience"""
+        try:
+            # Section header
+            page.insert_text(
+                point=(50, 220),
+                text="LEADERSHIP EXPERIENCE",
+                fontsize=18,
+                fontname="helv-b",
+                color=(0, 0, 0)
+            )
+            
+            y_pos = 245
+            for exp in experience[:5]:
+                if y_pos > 750:
+                    page = self._add_new_page_if_needed(page)
+                    y_pos = 50
+                
+                # Position title
+                if exp.get('title'):
+                    page.insert_text(
+                        point=(50, y_pos),
+                        text=exp['title'],
+                        fontsize=14,
+                        fontname="helv-b",
+                        color=(0, 0, 0)
+                    )
+                    y_pos += 18
+                
+                # Company and duration
+                company_duration = f"{exp.get('company', '')} | {exp.get('duration', '')}"
+                if company_duration.strip() != '|':
+                    page.insert_text(
+                        point=(50, y_pos),
+                        text=company_duration,
+                        fontsize=11,
+                        fontname="helv",
+                        color=(0.4, 0.4, 0.4)
+                    )
+                    y_pos += 15
+                
+                # Description
+                if exp.get('description'):
+                    wrapped_desc = self._wrap_text(exp['description'], 450, 10)
+                    page.insert_text(
+                        point=(50, y_pos),
+                        text=wrapped_desc,
+                        fontsize=10,
+                        fontname="helv",
+                        color=(0.2, 0.2, 0.2)
+                    )
+                    y_pos += 25
+                
+                y_pos += 10
+                
+        except Exception as e:
+            logger.error(f"Error adding executive experience: {e}")
+    
+    def _add_executive_education(self, page, education: List[Dict[str, Any]]):
+        """Add executive/leadership education"""
+        try:
+            # Section header
+            page.insert_text(
+                point=(50, 400),
+                text="EDUCATION",
+                fontsize=18,
+                fontname="helv-b",
+                color=(0, 0, 0)
+            )
+            
+            y_pos = 425
+            for edu in education[:3]:
+                if y_pos > 750:
+                    page = self._add_new_page_if_needed(page)
+                    y_pos = 50
+                
+                # Degree
+                if edu.get('degree'):
+                    page.insert_text(
+                        point=(50, y_pos),
+                        text=edu['degree'],
+                        fontsize=12,
+                        fontname="helv-b",
+                        color=(0, 0, 0)
+                    )
+                    y_pos += 15
+                
+                # Institution and year
+                institution_year = f"{edu.get('institution', '')} | {edu.get('year', '')}"
+                if institution_year.strip() != '|':
+                    page.insert_text(
+                        point=(50, y_pos),
+                        text=institution_year,
+                        fontsize=10,
+                        fontname="helv",
+                        color=(0.4, 0.4, 0.4)
+                    )
+                    y_pos += 20
+                
+        except Exception as e:
+            logger.error(f"Error adding executive education: {e}")
+    
+    def _add_executive_leadership(self, page, leadership: List[Dict[str, Any]]):
+        """Add executive/leadership positions"""
+        try:
+            # Section header
+            page.insert_text(
+                point=(50, 500),
+                text="BOARD POSITIONS & LEADERSHIP",
+                fontsize=18,
+                fontname="helv-b",
+                color=(0, 0, 0)
+            )
+            
+            y_pos = 525
+            for pos in leadership[:5]:
+                if y_pos > 750:
+                    page = self._add_new_page_if_needed(page)
+                    y_pos = 50
+                
+                # Position
+                if pos.get('title'):
+                    page.insert_text(
+                        point=(50, y_pos),
+                        text=pos['title'],
+                        fontsize=12,
+                        fontname="helv-b",
+                        color=(0, 0, 0)
+                    )
+                    y_pos += 15
+                
+                # Organization and duration
+                org_duration = f"{pos.get('organization', '')} | {pos.get('duration', '')}"
+                if org_duration.strip() != '|':
+                    page.insert_text(
+                        point=(50, y_pos),
+                        text=org_duration,
+                        fontsize=10,
+                        fontname="helv",
+                        color=(0.4, 0.4, 0.4)
+                    )
+                    y_pos += 20
+                
+        except Exception as e:
+            logger.error(f"Error adding executive leadership: {e}")
     
     # ===== UTILITY FUNCTIONS =====
     
