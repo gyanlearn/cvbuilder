@@ -17,6 +17,35 @@
             background: white;
             border-radius: 50%;
         }
+        .issue-bucket {
+            transition: all 0.2s ease-in-out;
+        }
+        .issue-bucket:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+        .score-indicator {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: bold;
+            color: white;
+        }
+        .score-10 { background-color: #10b981; }
+        .score-9 { background-color: #059669; }
+        .score-8 { background-color: #047857; }
+        .score-7 { background-color: #065f46; }
+        .score-6 { background-color: #dc2626; }
+        .score-5 { background-color: #b91c1c; }
+        .score-4 { background-color: #991b1b; }
+        .score-3 { background-color: #7f1d1d; }
+        .score-2 { background-color: #450a0a; }
+        .score-1 { background-color: #000000; }
+        .score-0 { background-color: #000000; }
     </style>
 </head>
 <body class="bg-gray-50 font-sans">
@@ -40,7 +69,7 @@
     <!-- Main Content -->
     <div class="flex h-screen bg-gray-50">
         <!-- Left Panel - ATS Score & Navigation -->
-        <div class="w-80 bg-white shadow-sm border-r">
+        <div class="w-80 bg-white shadow-sm border-r overflow-y-auto">
             <!-- ATS Score Section -->
             <div class="p-6 border-b">
                 <div class="relative w-32 h-32 mx-auto mb-4">
@@ -86,9 +115,9 @@
         </div>
 
         <!-- Middle Panel - Analysis Results -->
-        <div class="flex-1 bg-white">
+        <div class="flex-1 bg-white overflow-y-auto">
             <!-- Top Action Bar -->
-            <div class="border-b bg-gray-50 p-4">
+            <div class="border-b bg-gray-50 p-4 sticky top-0 z-10">
                 <div class="flex items-center justify-between">
                     <div class="flex items-center space-x-4">
                         <button class="text-gray-400 hover:text-gray-600">
@@ -158,8 +187,8 @@
         </div>
 
         <!-- Right Panel - Resume Preview -->
-        <div class="w-96 bg-white shadow-sm border-l">
-            <div class="p-4 border-b">
+        <div class="w-96 bg-white shadow-sm border-l overflow-y-auto">
+            <div class="p-4 border-b sticky top-0 bg-white z-10">
                 <h3 class="text-sm font-semibold text-gray-900">LINE ANALYSIS</h3>
             </div>
             
@@ -224,132 +253,131 @@
                 </div>
             </div>
         </div>
-    </div>
 
-    <!-- CV Improvement Modal -->
-    <div id="cv-improvement-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50">
-        <div class="flex items-center justify-center min-h-screen p-4">
-            <div class="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-                <div class="p-6">
-                    <div class="flex justify-between items-center mb-6">
-                        <h2 class="text-2xl font-bold text-gray-800">AI Resume Optimization</h2>
-                        <button onclick="hideCVImprovementInterface()" class="text-gray-500 hover:text-gray-700">
-                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                            </svg>
-                        </button>
-                    </div>
-                    
-                    <!-- Template Selection -->
-                    <div class="mb-6">
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Choose CV Template Style</label>
-                        <select id="template-select" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                            <option value="">Loading templates...</option>
-                        </select>
-                        <p class="text-sm text-gray-500 mt-1">Select a professional template format for your improved CV</p>
-                    </div>
-                    
-                    <!-- Current ATS Score -->
-                    <div class="mb-6">
-                        <h3 class="text-lg font-semibold text-gray-800 mb-2">Current ATS Score</h3>
-                        <div class="flex items-center">
-                            <div class="w-16 h-16 rounded-full border-4 border-gray-200 flex items-center justify-center mr-4">
-                                <span id="current-ats-score" class="text-xl font-bold text-gray-700">--</span>
-                            </div>
-                            <div>
-                                <p class="text-sm text-gray-600">Your current ATS score</p>
-                                <p class="text-xs text-gray-500">This will be improved based on the selected template</p>
+        <!-- CV Improvement Modal -->
+        <div id="cv-improvement-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50">
+            <div class="flex items-center justify-center min-h-screen p-4">
+                <div class="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+                    <div class="p-6">
+                        <div class="flex justify-between items-center mb-6">
+                            <h2 class="text-2xl font-bold text-gray-800">AI Resume Optimization</h2>
+                            <button onclick="hideCVImprovementInterface()" class="text-gray-500 hover:text-gray-700">
+                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                                </svg>
+                            </button>
+                        </div>
+                        
+                        <!-- Template Selection -->
+                        <div class="mb-6">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Choose CV Template Style</label>
+                            <select id="template-select" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                <option value="">Loading templates...</option>
+                            </select>
+                            <p class="text-sm text-gray-500 mt-1">Select a professional template format for your improved CV</p>
+                        </div>
+                        
+                        <!-- Current ATS Score -->
+                        <div class="mb-6">
+                            <h3 class="text-lg font-semibold text-gray-800 mb-2">Current ATS Score</h3>
+                            <div class="flex items-center">
+                                <div class="w-16 h-16 rounded-full border-4 border-gray-200 flex items-center justify-center mr-4">
+                                    <span id="current-ats-score" class="text-xl font-bold text-gray-700">--</span>
+                                </div>
+                                <div>
+                                    <p class="text-sm text-gray-600">Your current ATS score</p>
+                                    <p class="text-xs text-gray-500">This will be improved based on the selected template</p>
+                                </div>
                             </div>
                         </div>
-                    </div>
-                    
-                    <!-- Issues Summary -->
-                    <div class="mb-6">
-                        <h3 class="text-lg font-semibold text-gray-800 mb-2">Key Issues to Fix</h3>
-                        <div id="issues-summary" class="bg-gray-50 rounded-lg p-4">
-                            <p class="text-gray-600">Loading issues...</p>
+                        
+                        <!-- Issues Summary -->
+                        <div class="mb-6">
+                            <h3 class="text-lg font-semibold text-gray-800 mb-2">Key Issues to Fix</h3>
+                            <div id="issues-summary" class="bg-gray-50 rounded-lg p-4">
+                                <p class="text-gray-600">Loading issues...</p>
+                            </div>
                         </div>
-                    </div>
-                    
-                    <!-- Industry Selection -->
-                    <div class="mb-6">
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Target Industry</label>
-                        <select id="industry-select-improvement" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                            <option value="technology">Technology</option>
-                            <option value="marketing">Marketing</option>
-                            <option value="finance">Finance</option>
-                            <option value="healthcare">Healthcare</option>
-                            <option value="education">Education</option>
-                            <option value="sales">Sales</option>
-                            <option value="hr">Human Resources</option>
-                            <option value="operations">Operations</option>
-                            <option value="design">Design</option>
-                            <option value="consulting">Consulting</option>
-                        </select>
-                    </div>
-                    
-                    <!-- Action Buttons -->
-                    <div class="flex justify-end space-x-3">
-                        <button onclick="hideCVImprovementInterface()" class="px-4 py-2 text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50">
-                            Cancel
-                        </button>
-                        <button onclick="startCVImprovement()" class="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">
-                            Start AI Improvement
-                        </button>
+                        
+                        <!-- Industry Selection -->
+                        <div class="mb-6">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Target Industry</label>
+                            <select id="industry-select-improvement" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                <option value="technology">Technology</option>
+                                <option value="marketing">Marketing</option>
+                                <option value="finance">Finance</option>
+                                <option value="healthcare">Healthcare</option>
+                                <option value="education">Education</option>
+                                <option value="sales">Sales</option>
+                                <option value="hr">Human Resources</option>
+                                <option value="operations">Operations</option>
+                                <option value="design">Design</option>
+                                <option value="consulting">Consulting</option>
+                            </select>
+                        </div>
+                        
+                        <!-- Action Buttons -->
+                        <div class="flex justify-end space-x-3">
+                            <button onclick="hideCVImprovementInterface()" class="px-4 py-2 text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50">
+                                Cancel
+                            </button>
+                            <button onclick="startCVImprovement()" class="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">
+                                Start AI Improvement
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
-    </div>
 
-    <!-- Improvement Progress Modal -->
-    <div id="improvement-progress-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50">
-        <div class="flex items-center justify-center min-h-screen p-4">
-            <div class="bg-white rounded-lg max-w-md w-full p-6 text-center">
-                <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-                <h3 class="text-lg font-medium text-gray-900 mb-2">Improving Your Resume</h3>
-                <p class="text-gray-600">AI is analyzing and optimizing your CV. This may take a few moments...</p>
+        <!-- Improvement Progress Modal -->
+        <div id="improvement-progress-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50">
+            <div class="flex items-center justify-center min-h-screen p-4">
+                <div class="bg-white rounded-lg max-w-md w-full p-6 text-center">
+                    <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                    <h3 class="text-lg font-medium text-gray-900 mb-2">Improving Your Resume</h3>
+                    <p class="text-gray-600">AI is analyzing and optimizing your CV. This may take a few moments...</p>
+                </div>
             </div>
         </div>
-    </div>
 
-    <!-- Improvement Results Modal -->
-    <div id="improvement-results-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50">
-        <div class="flex items-center justify-center min-h-screen p-4">
-            <div class="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-                <div class="p-6">
-                    <div class="flex justify-between items-center mb-6">
-                        <h2 class="text-2xl font-bold text-gray-800">Resume Improvement Complete!</h2>
-                        <button onclick="hideImprovementResults()" class="text-gray-500 hover:text-gray-700">
-                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                            </svg>
-                        </button>
-                    </div>
-                    
-                    <div id="improvement-results-content">
-                        <!-- Dynamic content will be populated here -->
+        <!-- Improvement Results Modal -->
+        <div id="improvement-results-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50">
+            <div class="flex items-center justify-center min-h-screen p-4">
+                <div class="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+                    <div class="p-6">
+                        <div class="flex justify-between items-center mb-6">
+                            <h2 class="text-2xl font-bold text-gray-800">Resume Improvement Complete!</h2>
+                            <button onclick="hideImprovementResults()" class="text-gray-500 hover:text-gray-700">
+                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                                </svg>
+                            </button>
+                        </div>
+                        
+                        <div id="improvement-results-content">
+                            <!-- Dynamic content will be populated here -->
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
-    </div>
 
-    <!-- Error Notification -->
-    <div id="error-notification" class="fixed top-4 right-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded hidden z-50">
-        <div class="flex items-center">
-            <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path>
-            </svg>
-            <span id="error-message"></span>
-            <button onclick="hideError()" class="ml-4 text-red-700 hover:text-red-900">
-                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                    <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+        <!-- Error Notification -->
+        <div id="error-notification" class="fixed top-4 right-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded hidden z-50">
+            <div class="flex items-center">
+                <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path>
                 </svg>
-            </button>
+                <span id="error-message"></span>
+                <button onclick="hideError()" class="ml-4 text-red-700 hover:text-red-900">
+                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+                    </svg>
+                </button>
+            </div>
         </div>
-    </div>
 
-    <script src="script.js"></script>
-</body>
-</html>
+        <script src="script.js"></script>
+    </body>
+    </html>
